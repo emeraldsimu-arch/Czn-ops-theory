@@ -12,6 +12,166 @@
 <link rel="manifest" href="manifest.json">
 </head>
 <body>
+
+<!-- PIN GATE — shown before app loads if not authenticated -->
+<div id="pinGate" style="
+  position:fixed;inset:0;background:#08090c;z-index:99999;
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Syne',sans-serif;
+">
+  <div style="text-align:center;max-width:320px;width:100%;padding:0 24px;">
+    <div style="font-family:'Orbitron',monospace;font-weight:900;font-size:22px;letter-spacing:4px;color:#eef2ff;margin-bottom:4px">
+      NEX<span style="color:#e84faa">U</span>S
+    </div>
+    <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:#4a5468;letter-spacing:2px;margin-bottom:32px">
+      OPERATOR AUTHENTICATION
+    </div>
+    <div style="display:flex;justify-content:center;gap:10px;margin-bottom:20px" id="pinDots">
+      <div class="pdot-display"></div>
+      <div class="pdot-display"></div>
+      <div class="pdot-display"></div>
+      <div class="pdot-display"></div>
+    </div>
+    <div id="pinError" style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#ff5252;height:16px;margin-bottom:12px;"></div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-width:240px;margin:0 auto;">
+      <button class="pin-btn" onclick="pinPress('1')">1</button>
+      <button class="pin-btn" onclick="pinPress('2')">2</button>
+      <button class="pin-btn" onclick="pinPress('3')">3</button>
+      <button class="pin-btn" onclick="pinPress('4')">4</button>
+      <button class="pin-btn" onclick="pinPress('5')">5</button>
+      <button class="pin-btn" onclick="pinPress('6')">6</button>
+      <button class="pin-btn" onclick="pinPress('7')">7</button>
+      <button class="pin-btn" onclick="pinPress('8')">8</button>
+      <button class="pin-btn" onclick="pinPress('9')">9</button>
+      <button class="pin-btn pin-clear" onclick="pinClear()">⌫</button>
+      <button class="pin-btn" onclick="pinPress('0')">0</button>
+      <button class="pin-btn pin-submit" onclick="pinSubmit()">→</button>
+    </div>
+    <div id="pinSetupMsg" style="font-family:'JetBrains Mono',monospace;font-size:10px;color:#4a5468;margin-top:20px;line-height:1.5"></div>
+  </div>
+</div>
+
+<style>
+.pdot-display {
+  width: 14px; height: 14px; border-radius: 50%;
+  border: 2px solid #4a5468; background: transparent;
+  transition: all .15s;
+}
+.pdot-display.filled { background: #e84faa; border-color: #e84faa; }
+.pin-btn {
+  font-family: 'Orbitron', monospace; font-size: 16px; font-weight: 600;
+  background: #14161d; border: 1px solid rgba(255,255,255,0.08);
+  color: #eef2ff; padding: 16px; border-radius: 8px;
+  cursor: pointer; transition: all .15s; letter-spacing: 1px;
+}
+.pin-btn:hover  { background: #191c24; border-color: rgba(255,255,255,0.15); }
+.pin-btn:active { background: rgba(232,79,170,0.15); border-color: #e84faa; }
+.pin-clear  { color: #ff5252; }
+.pin-submit { color: #e84faa; }
+@keyframes pinShake {
+  0%,100% { transform: translateX(0); }
+  20%,60% { transform: translateX(-8px); }
+  40%,80% { transform: translateX(8px); }
+}
+.pin-shake { animation: pinShake .4s ease; }
+</style>
+
+<script>
+const PIN_KEY     = 'nexus_pin';
+const PIN_AUTH    = 'nexus_auth';
+const PIN_SESSION = 'nexus_session';
+let pinBuffer = '';
+let pinMode   = 'auth'; // 'set' or 'auth' or 'confirm'
+let pinConfirmBuffer = '';
+
+function pinInit() {
+  const stored = localStorage.getItem(PIN_KEY);
+  const session = sessionStorage.getItem(PIN_SESSION);
+  if (session === 'ok') { pinGateHide(); return; }
+  if (!stored) {
+    pinMode = 'set';
+    document.getElementById('pinSetupMsg').textContent = 'No PIN set. Enter a 4-digit PIN to secure NEXUS.';
+  }
+  // keyboard support
+  document.addEventListener('keydown', e => {
+    if (!document.getElementById('pinGate').style.display !== 'none') return;
+    if (e.key >= '0' && e.key <= '9') pinPress(e.key);
+    if (e.key === 'Backspace') pinClear();
+    if (e.key === 'Enter') pinSubmit();
+  });
+}
+
+function pinPress(n) {
+  if (pinBuffer.length >= 4) return;
+  pinBuffer += n;
+  updatePinDots();
+  if (pinBuffer.length === 4) setTimeout(pinSubmit, 150);
+}
+
+function pinClear() {
+  pinBuffer = pinBuffer.slice(0, -1);
+  updatePinDots();
+  document.getElementById('pinError').textContent = '';
+}
+
+function updatePinDots() {
+  const dots = document.querySelectorAll('.pdot-display');
+  dots.forEach((d, i) => d.classList.toggle('filled', i < pinBuffer.length));
+}
+
+function pinSubmit() {
+  if (pinBuffer.length < 4) {
+    showPinError('Enter 4 digits'); return;
+  }
+  if (pinMode === 'set') {
+    pinConfirmBuffer = pinBuffer; pinBuffer = '';
+    updatePinDots();
+    pinMode = 'confirm';
+    document.getElementById('pinSetupMsg').textContent = 'Confirm your PIN.';
+    return;
+  }
+  if (pinMode === 'confirm') {
+    if (pinBuffer === pinConfirmBuffer) {
+      localStorage.setItem(PIN_KEY, btoa(pinBuffer));
+      sessionStorage.setItem(PIN_SESSION, 'ok');
+      pinGateHide();
+    } else {
+      showPinError('PINs do not match — try again');
+      pinBuffer = ''; pinConfirmBuffer = ''; pinMode = 'set';
+      updatePinDots();
+      document.getElementById('pinSetupMsg').textContent = 'Enter a 4-digit PIN to secure NEXUS.';
+    }
+    return;
+  }
+  // auth mode
+  const stored = localStorage.getItem(PIN_KEY);
+  if (stored && btoa(pinBuffer) === stored) {
+    sessionStorage.setItem(PIN_SESSION, 'ok');
+    pinGateHide();
+  } else {
+    showPinError('Incorrect PIN');
+    pinBuffer = ''; updatePinDots();
+    const gate = document.getElementById('pinGate');
+    gate.classList.add('pin-shake');
+    setTimeout(() => gate.classList.remove('pin-shake'), 400);
+  }
+}
+
+function showPinError(msg) {
+  document.getElementById('pinError').textContent = msg;
+  setTimeout(() => { document.getElementById('pinError').textContent = ''; }, 2000);
+}
+
+function pinGateHide() {
+  const gate = document.getElementById('pinGate');
+  gate.style.opacity = '0';
+  gate.style.transition = 'opacity .3s ease';
+  setTimeout(() => gate.style.display = 'none', 300);
+}
+
+pinInit();
+</script>
+
 <div class="scanline"></div>
 <div class="phantom-flash" id="phantomFlash"></div>
 <div class="toast-wrap" id="toastWrap"></div>
@@ -33,7 +193,7 @@
 
 <div class="wrap">
   <header class="site-header">
-    <div class="logo">NEX<span class="logo-accent">U</span>S<span class="logo-ver">v5.3</span></div>
+    <div class="logo">NEX<span class="logo-accent">U</span>S<span class="logo-ver">v5.4</span></div>
     <div class="hdr-right">
       <span class="week-lbl" id="weekLbl"></span>
       <div class="gbar-wrap">
@@ -76,6 +236,80 @@
         <textarea class="notes-mini-ta" id="quickNote"
           placeholder="Quick note for tonight…"
           oninput="saveQuickNote()"></textarea>
+      </div>
+      <textarea class="notes-ta" id="notesMain"
+        placeholder="Full session notes — pull plans, team ideas, resource goals…"
+        oninput="saveNotes()"></textarea>
+    </div>
+  </div>
+
+  <!-- CALENDAR -->
+  <div class="view" id="view-calendar">
+    <div class="burn-card">
+      <div class="sec-hdr">Weekly Workload</div>
+      <div class="burn-games" id="burnGames"></div>
+    </div>
+    <div class="cal-title-row">
+      <div class="cal-title" id="calTitle"></div>
+      <div class="cal-legend" id="calLegend"></div>
+    </div>
+    <div class="cal-grid" id="calGrid"></div>
+    <div class="notes-card">
+      <div class="sec-hdr" style="margin-bottom:8px">Planning Notes</div>
+      <textarea class="notes-ta" id="calNotes"
+        placeholder="Schedule, pull targets, event prep…"
+        oninput="saveCalNotes()"></textarea>
+    </div>
+  </div>
+
+  <!-- CURRENCY -->
+  <div class="view" id="view-currency">
+    <div style="height:16px"></div>
+    <div class="sec-hdr" style="margin-bottom:12px">
+      Currency &amp; Pull Tracker
+      <span style="font-size:8px;color:var(--text-dim);margin-left:8px;font-family:'JetBrains Mono',monospace">Enter your current balance to track pulls &amp; pity</span>
+    </div>
+    <div id="currencySection" class="currency-section"></div>
+  </div>
+
+  <!-- ACHIEVEMENTS -->
+  <div class="view ach-view" id="view-achievements">
+    <div class="nexus-record" id="nexusRecord">
+      <div class="record-hdr">
+        <div class="record-title">NEXUS Record</div>
+        <div class="record-tier" id="recordTier">SIGNAL</div>
+      </div>
+      <div class="record-grid" id="recordGrid"></div>
+      <div class="record-sync">
+        <div class="sync-dot" id="syncDot"></div>
+        <span id="syncMsg">Connecting to archive…</span>
+      </div>
+    </div>
+    <div class="dispatch-section">
+      <div class="sec-hdr" style="margin-bottom:10px">This Week's Dispatches</div>
+      <div class="dispatch-weekly-grid" id="dispatchGrid"></div>
+    </div>
+    <div id="permAch"></div>
+  </div>
+
+  <footer class="footer">
+    <span id="footerDate"></span>
+    <div class="fresh-status">
+      <div class="fstatus-dot" id="fstatDot" style="background:var(--ok)"></div>
+      <span id="fstatMsg">Data current</span>
+    </div>
+    <span>GAME8 · PRYDWEN · WIKI · GAMEWITH</span>
+  </footer>
+</div>
+
+<!-- DATA FILES (order matters) -->
+<script src="data/config.js"></script>
+<script src="data/games.js"></script>
+<script src="data/achievements.js"></script>
+<!-- APP -->
+<script src="app.js"></script>
+</body>
+</html>          oninput="saveQuickNote()"></textarea>
       </div>
       <textarea class="notes-ta" id="notesMain"
         placeholder="Full session notes — pull plans, team ideas, resource goals…"
