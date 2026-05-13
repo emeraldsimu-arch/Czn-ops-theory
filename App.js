@@ -1,38 +1,29 @@
-// NEXUS v5.4 — APP.JS
+// NEXUS v5.5 — APP.JS
 // All application logic, state management, Notion sync
 // GitHub: Emereldsimu-arch/nexus
-// Changes from v5.3:
-//   - Achievement debounce: 60s for OPERATIVE+, min 2 tasks required
-//   - Freshness banner: only fires within strict 7-day window
-//   - Today panel: always shows calendar focus as fallback P3
-//   - Urgency banner: suppresses >14 day modes on first load
-//   - CZN card: expands by default, others collapsed
-//   - Currency tab: onboarding placeholder added
-//   - Calendar: today card linked to Today panel
-//   - Notion sync: visual confirmation flash on success
-//   - Achievements tab: timed fallback sync message
-// Changes from v5.4 audit:
-//   - hsrEndgameDone: fixed to check getCy() for 4 HSR cycle keys (was checking stale weekly[] indices)
-//   - wwEndgameDone: fixed to check getCy() for ww_toa and ww_ww (was checking stale weekly[] indices)
-//   - updateLT: fixed perfect week increment no-op (was setting value to itself, not incrementing)
-//   - window._nexusHelpers: removed dead code (helpers resolve via shared global scope, no binding needed)
+// Changes from v5.4:
+//   - ZZZ promoted to P4 full game card; ZZZ passive strip removed
+//   - 7DSO removed from all helpers and render logic
+//   - zzzEndgameDone helper added
+//   - Cycle clear rows render ABOVE weekly tasks (reduced friction)
+//   - Collapsed + complete cards get stronger green glow (CSS class)
+//   - Debug cycle reset: long-press footer version number (600ms)
+//   - Version bump to 5.5
 // ═══════════════════════════════════════════════════════════
 
 // ── STORAGE KEYS ──
-const SK      = 'nexus_v53';       // weekly state
-const LTK     = 'nexus_v53_lt';    // lifetime stats
-const NK      = 'nexus_v53_n';     // session notes
-const CNK     = 'nexus_v53_cn';    // calendar notes
-const QNK     = 'nexus_v53_qn';    // quick note
-const STRK    = 'nexus_v53_str';   // streak
-const OUTBOXK = 'nexus_v53_ob';    // offline outbox
-const PREVWK  = 'nexus_v53_pw';    // previous week key
-const CURK    = 'nexus_v53_cur';   // currency balances
-const PITYK   = 'nexus_v53_pity';  // pity counters
+const SK      = 'nexus_v53';
+const LTK     = 'nexus_v53_lt';
+const NK      = 'nexus_v53_n';
+const CNK     = 'nexus_v53_cn';
+const QNK     = 'nexus_v53_qn';
+const STRK    = 'nexus_v53_str';
+const OUTBOXK = 'nexus_v53_ob';
+const PREVWK  = 'nexus_v53_pw';
+const CURK    = 'nexus_v53_cur';
+const PITYK   = 'nexus_v53_pity';
 
 // ── WEEK KEY ──
-// CZN resets Sunday, all others Monday
-// We use Monday as the universal week anchor but check per-game reset day in logic
 function wk() {
   const n = new Date();
   const d = new Date(Date.UTC(n.getFullYear(), n.getMonth(), n.getDate()));
@@ -61,7 +52,6 @@ function setv(gid, type, idx, val) {
 }
 function getv(s, gid, type, idx) { return !!(s[gid]?.[type]?.[idx]); }
 
-// Cycle clears use date-based keys, not weekly keys
 function setCy(k, val) {
   const a = ld(); const cyKey = 'CY_' + k;
   if (!a[cyKey]) a[cyKey] = {};
@@ -72,17 +62,12 @@ function setCy(k, val) {
 function getCy(k) {
   const a = ld(); const cyKey = 'CY_' + k;
   if (!a[cyKey]?.cleared) return false;
-  // Check if cycle has reset since last clear
   const cycleConf = CONFIG.cycles[k];
   if (!cycleConf) return false;
-  if (cycleConf.type === 'weekly') {
-    // Weekly cycles reset with the week key
-    return !!(a[cyKey]?.weekKey === wk());
-  }
+  if (cycleConf.type === 'weekly') return !!(a[cyKey]?.weekKey === wk());
   const clearDate = new Date(a[cyKey].date);
   const endsDate  = new Date(cycleConf.ends === 'weekly' ? '2099-01-01' : cycleConf.ends);
   const today     = new Date();
-  // If cycle end date has passed since clear, it has reset
   return clearDate <= endsDate && today <= endsDate;
 }
 function setCyWeekly(k, val) {
@@ -107,9 +92,7 @@ function updateStreak() {
 function getStreak() { try { return JSON.parse(localStorage.getItem(STRK) || '{"count":0}').count; } catch { return 0; } }
 
 // ── COMPUTED HELPERS ──
-// These are defined in global scope and called directly by check() functions
-// in achievements.js — no binding or overwriting needed, the browser resolves
-// them from the shared global scope at runtime.
+// Defined in global scope — called directly by achievements.js check() functions
 function totalDone(s) {
   let d = 0;
   GAMES.forEach(g => {
@@ -122,17 +105,18 @@ function allDaily(gid, s) { return GAMES.find(g => g.id === gid).daily.every((_,
 function spiralFull(s)    { return [0,1,2,3,4].every(i => getv(s, 'czn', 'weekly', i)); }
 
 // hsrEndgameDone — checks cycle clears for all 4 HSR endgame modes
-// FIXED v5.4: was checking hsr.weekly[0..3] which pointed to wrong tasks
-// after MoC/PF/AS/AA were removed from weekly[] in the duplicate audit
 function hsrEndgameDone(s) {
   return getCy('hsr_moc') && getCy('hsr_pf') && getCy('hsr_as') && getCy('hsr_aa');
 }
 
 // wwEndgameDone — checks cycle clears for ToA and WhiWa
-// FIXED v5.4: was checking ww.weekly[0] and ww.weekly[1] which pointed to
-// Thousand Gateways and tacet boss after ToA/WhiWa were removed from weekly[]
 function wwEndgameDone(s) {
   return getCy('ww_toa') && getCy('ww_ww');
+}
+
+// zzzEndgameDone — checks all 3 ZZZ cycle clears
+function zzzEndgameDone(s) {
+  return getCy('zzz_shiyu') && getCy('zzz_deadly') && getCy('zzz_hollow');
 }
 
 function allMats(s) {
@@ -177,7 +161,7 @@ function checkDispatch(d, s, lt) {
     case 'd_czn':     return allDaily('czn', s);
     case 'd_ww':      return allDaily('ww', s);
     case 'd_hsr':     return allDaily('hsr', s);
-    case 'd_sds':     return allDaily('sds', s);
+    case 'd_zzz':     return allDaily('zzz', s);
     case 'd_tower':   return spiralFull(s);
     case 'd_mats':    return allMats(s);
     case 'd_cycles':  return cyclesDone(s) >= 3;
@@ -195,13 +179,11 @@ function daysUntilCycleEnds(cycleKey) {
   const end   = new Date(c.ends); end.setHours(0,0,0,0);
   return Math.ceil((end - today) / (1000*60*60*24));
 }
-
 function isCycleUnlocked(cycleKey) {
   const c = CONFIG.cycles[cycleKey];
   if (!c?.unlocks) return true;
   return new Date() >= new Date(c.unlocks);
 }
-
 function cycleResetLabel(cycleKey) {
   const d = daysUntilCycleEnds(cycleKey);
   if (d === null) return 'Weekly';
@@ -221,11 +203,10 @@ function checkFreshness() {
     if (diff < 0) { stale = true; msg = `${p.game.toUpperCase()} v${p.version} data may be outdated`; }
     else if (diff <= 7 && diff < soonestDiff) { soonestDiff = diff; soonestPatch = p; }
   });
-  // Only warn if strictly within 7 days — never fire for 8+ days remaining
   if (!stale && soonestPatch) { warn = true; msg = `${soonestPatch.game.toUpperCase()} patch ends in ${soonestDiff}d`; }
-  const banner  = document.getElementById('freshBanner');
-  const fDot    = document.getElementById('fstatDot');
-  const fMsg    = document.getElementById('fstatMsg');
+  const banner = document.getElementById('freshBanner');
+  const fDot   = document.getElementById('fstatDot');
+  const fMsg   = document.getElementById('fstatMsg');
   if (stale) {
     banner.className = 'fresh-banner show stale';
     document.getElementById('freshMsg').textContent = msg + ' — request a data update.';
@@ -250,8 +231,6 @@ function buildTodayPanel() {
   const dow   = today.getDay();
   const di    = dow === 0 ? 6 : dow - 1;
   const items = [];
-
-  // P1: Critical events expiring <=3 days
   CONFIG.events.filter(e => e.tier === 'critical').forEach(e => {
     const diff = Math.floor((new Date(e.ends) - today) / (1000*60*60*24));
     if (diff >= 0 && diff <= 3) {
@@ -259,8 +238,6 @@ function buildTodayPanel() {
       items.push({ p:1, game: g?.short || e.game.toUpperCase(), text: e.name, meta: `⚠ ${diff}d left`, color: `var(--${e.game})` });
     }
   });
-
-  // P2: Cycles resetting today or tomorrow
   GAMES.forEach(g => {
     g.endgameModes.forEach(m => {
       if (!getCy(m.cycleKey) && isCycleUnlocked(m.cycleKey)) {
@@ -271,13 +248,8 @@ function buildTodayPanel() {
       }
     });
   });
-
-  // P3: Today's calendar focus — ALWAYS added as fallback even if nothing urgent
   const plan = WEEK_PLAN[di];
-  if (plan) {
-    items.push({ p:3, game: 'NEXUS', text: plan.focus, meta: plan.load + ' session', color: 'var(--text-dim)' });
-  }
-
+  if (plan) items.push({ p:3, game: 'NEXUS', text: plan.focus, meta: plan.load + ' session', color: 'var(--text-dim)' });
   const shown = items.slice(0, 3);
   const d = today.toLocaleDateString('en-US', { weekday:'long', month:'short', day:'numeric' });
   let html = `<div class="today-panel"><div class="today-hdr"><div class="today-title">Today's Priority</div><div class="today-date">${d.toUpperCase()}</div></div><div class="today-items">`;
@@ -319,14 +291,12 @@ function buildUrgency() {
   const today = new Date(); today.setHours(0,0,0,0);
   const lt    = getLT();
   const isFirstLoad = (lt.totalTasksCompleted || 0) === 0;
-  // On first load suppress modes with >14 days — reduce noise for new users
   const urgencyThreshold = isFirstLoad ? 14 : 999;
   let html = '', c = 0;
   GAMES.forEach(g => {
     g.endgameModes.forEach(m => {
       if (!getCy(m.cycleKey) && isCycleUnlocked(m.cycleKey) && c < 5) {
-        const d   = daysUntilCycleEnds(m.cycleKey);
-        // Suppress if first load and mode has plenty of time remaining
+        const d = daysUntilCycleEnds(m.cycleKey);
         if (isFirstLoad && d !== null && d > urgencyThreshold) return;
         const cls = d !== null && d <= 2 ? '' : 'warn';
         const txt = d === null ? 'Weekly' : d <= 0 ? 'TODAY!' : d + 'd left';
@@ -344,11 +314,10 @@ function buildUrgency() {
 }
 
 // ── GAME CARDS ──
+// v5.5: Cycle clear rows render ABOVE weekly tasks for reduced friction
 function buildCard(g, s) {
   const a   = `var(${g.accent})`, d = `var(${g.dim})`;
   const all = ld(); const w = wk();
-  // P1 game (CZN) expands by default on first load — all others collapsed
-  // User can toggle any card; their preference persists in state
   const hasColPref = all[w]?._col?.[g.id] !== undefined;
   const collapsed  = hasColPref ? !!all[w]._col[g.id] : g.priority !== 1;
   let dd = 0, wd = 0;
@@ -359,12 +328,10 @@ function buildCard(g, s) {
   const pct   = Math.round(done / total * 100);
   const isComplete = pct >= 100;
 
-  const dlHTML = g.deadline ? `<div class="g-dl ${g.deadlineSoon?'soon':'ok'}">${g.deadlineSoon?'⚠ ':''}Ends ${g.deadline}</div>` : '';
+  const dlHTML    = g.deadline ? `<div class="g-dl ${g.deadlineSoon?'soon':'ok'}">${g.deadlineSoon?'⚠ ':''}Ends ${g.deadline}</div>` : '';
   const resetHTML = g.resetNote ? `<div class="g-reset-note">${g.resetNote}</div>` : '';
-  const doneBadge = isComplete ? `<span class="g-done-badge">✓ COMPLETE</span>` : '';
-
-  // stale check
-  const patch = CONFIG.patches.find(p => p.game === g.id);
+  const doneBadge = isComplete  ? `<span class="g-done-badge">✓ COMPLETE</span>` : '';
+  const patch     = CONFIG.patches.find(p => p.game === g.id);
   const staleHTML = patch && new Date(patch.ends) < new Date()
     ? `<div class="card-fresh-warn show">⚠ Patch data may be outdated</div>`
     : `<div class="card-fresh-warn"></div>`;
@@ -379,9 +346,8 @@ function buildCard(g, s) {
 
   const weeklyHTML = g.weekly.map((t, i) => {
     const ok = getv(s, g.id, 'weekly', i);
-    // Check unlock date for 7DSO sectors
     const isLocked = t.unlocks && new Date() < new Date(t.unlocks);
-    return `<div class="trow${ok?' done':''}${isLocked?' locked':''}" onclick="${isLocked?'':' togT(\''+g.id+'\',\'weekly\','+i+',this,event)'}">
+    return `<div class="trow${ok?' done':''}${isLocked?' locked':''}" onclick="${isLocked?'':` togT('${g.id}','weekly',${i},this,event)`}">
       <div class="tcheck"></div><span class="ttext">${t.t}</span>
       ${t.deadline ? `<span class="tdl">↯ ${t.deadline}</span>` : ''}
       ${isLocked ? `<span class="tdl">Unlocks ${t.unlocks}</span>` : ''}
@@ -403,6 +369,7 @@ function buildCard(g, s) {
     </div>`;
   }).join('');
 
+  // v5.5: cycle clears render ABOVE weekly tasks
   return `<div class="game-card${collapsed?' collapsed':''}${isComplete?' done-card':''}" data-game="${g.id}" id="card-${g.id}" style="--accent:${a};--accent-dim:${d}">
     <div class="game-top" onclick="togCol('${g.id}')">
       <div class="gtop-row">
@@ -428,26 +395,12 @@ function buildCard(g, s) {
       <div class="tsec">Daily <span class="tcnt">${dd}/${g.daily.length}</span></div>
       <div class="tlist">${dailyHTML}</div>
       <div class="sdiv"></div>
-      <div class="tsec">Weekly / Resources <span class="tcnt">${wd}/${g.weekly.length}</span></div>
-      <div class="tlist">${weeklyHTML}</div>
-      <div class="sdiv"></div>
       <div class="tsec">Endgame Cycle Clears <span class="tcnt" id="cyc-${g.id}">${cdone}/${g.endgameModes.length}</span></div>
       ${cycleHTML}
+      <div class="sdiv"></div>
+      <div class="tsec">Weekly / Resources <span class="tcnt">${wd}/${g.weekly.length}</span></div>
+      <div class="tlist">${weeklyHTML}</div>
     </div>
-  </div>`;
-}
-
-function buildZZZ(s) {
-  const tasks = ZZZ.tasks.map(t => {
-    const ok = !!(s.zzz?.passive?.[t.id]);
-    return `<div class="ptask${ok?' done':''}" onclick="togP('${t.id}',this)">
-      <div class="pcheck"></div><span class="ptt">${t.t}</span></div>`;
-  }).join('');
-  return `<div class="passive-card">
-    <div style="font-family:'Orbitron',monospace;font-size:10px;font-weight:700;color:var(--zzz);letter-spacing:1px;min-width:90px">
-      ZZZ<br><span style="font-size:7px;opacity:.4;display:block;margin-top:2px">v2.8 · PASSIVE</span>
-    </div>
-    <div class="ptasks">${tasks}</div>
   </div>`;
 }
 
@@ -459,11 +412,8 @@ function togT(gid, type, idx, el, ev) {
   r.style.left = (ev.clientX - rect.left - 10) + 'px';
   r.style.top  = (ev.clientY - rect.top  - 10) + 'px';
   el.appendChild(r); setTimeout(() => r.remove(), 400);
-
   const s   = ws(); const cur = getv(s, gid, type, idx);
   setv(gid, type, idx, !cur); el.classList.toggle('done');
-
-  // update card header live
   const g    = GAMES.find(x => x.id === gid); const s2 = ws();
   const pct  = gamePct(g, s2);
   const done = g.daily.filter((_,i) => getv(s2,g.id,'daily',i)).length +
@@ -481,17 +431,15 @@ function togT(gid, type, idx, el, ev) {
 }
 
 function togCy(k, el) {
-  const cyConf = CONFIG.cycles[k];
+  const cyConf   = CONFIG.cycles[k];
   const isWeekly = cyConf?.type === 'weekly';
   const cur = getCy(k);
   if (isWeekly) setCyWeekly(k, !cur);
   else          setCy(k, !cur);
   el.classList.toggle('cleared');
   buildUrgency(); buildTodayPanel(); updateGlobals(); checkAllAchievements(); updateLT();
-  // update count
   const g = GAMES.find(g => g.endgameModes.some(m => m.cycleKey === k));
   if (g) {
-    const s2  = ws();
     const cnt = g.endgameModes.filter(m => getCy(m.cycleKey)).length;
     const el2 = document.getElementById('cyc-' + g.id);
     if (el2) el2.textContent = cnt + '/' + g.endgameModes.length;
@@ -503,14 +451,6 @@ function togCol(gid) {
   if (!a[w]) a[w] = {}; if (!a[w]._col) a[w]._col = {};
   a[w]._col[gid] = !a[w]._col[gid]; sv(a);
   document.getElementById('card-' + gid)?.classList.toggle('collapsed');
-}
-
-function togP(tid, el) {
-  const a = ld(); const w = wk();
-  if (!a[w]) a[w] = {}; if (!a[w].zzz) a[w].zzz = {};
-  if (!a[w].zzz.passive) a[w].zzz.passive = {};
-  a[w].zzz.passive[tid] = !a[w].zzz.passive[tid]; sv(a);
-  el.classList.toggle('done');
 }
 
 function updateGlobals() {
@@ -526,6 +466,33 @@ function confirmReset() {
   }
 }
 
+// ── DEBUG: CYCLE RESET ──
+// Long-press footer version number (600ms) to trigger
+// Clears all CY_ keys from localStorage — resets cycle clear state only
+// Weekly task state and lifetime stats are NOT affected
+function confirmCycleReset() {
+  if (confirm('DEBUG: Reset all cycle clear states? Weekly tasks and lifetime stats are unaffected.')) {
+    const a = ld();
+    Object.keys(a).forEach(k => { if (k.startsWith('CY_')) delete a[k]; });
+    sv(a);
+    render();
+    setSyncStatus('ok', 'Cycle states reset');
+  }
+}
+
+function initDebugLongPress() {
+  const el = document.getElementById('footerVer');
+  if (!el) return;
+  let timer = null;
+  el.addEventListener('touchstart', () => { timer = setTimeout(confirmCycleReset, 600); }, { passive: true });
+  el.addEventListener('touchend',   () => clearTimeout(timer));
+  el.addEventListener('touchmove',  () => clearTimeout(timer));
+  // Desktop: mousedown/mouseup
+  el.addEventListener('mousedown', () => { timer = setTimeout(confirmCycleReset, 600); });
+  el.addEventListener('mouseup',   () => clearTimeout(timer));
+  el.addEventListener('mouseleave',() => clearTimeout(timer));
+}
+
 // ── CURRENCY DASHBOARD ──
 function buildCurrencySection() {
   const cur  = getCur();
@@ -538,10 +505,10 @@ function buildCurrencySection() {
   html += '<div class="currency-grid">';
   GAMES.forEach(g => {
     const pull    = CONFIG.pulls[g.id];
+    if (!pull) return; // safety guard
     const balance = cur[g.id] || 0;
     const pulls   = Math.floor(balance / pull.perPull);
     const pityVal = pity[g.id] || 0;
-    const toHard  = pull.hardPity - pityVal;
     const barPct  = Math.min(100, Math.round(balance / (pull.hardPity * pull.perPull) * 100));
     const weekly  = CONFIG.weeklyYields[g.id];
     const earnedSoFar = calcEarned(g.id, s);
@@ -590,25 +557,20 @@ function calcEarned(gid, s) {
   g.weekly.forEach((t,i) => { if (getv(s,g.id,'weekly',i) && t.jade) total += t.jade; });
   return total;
 }
-
 function updateCurrency(gid, val) {
   const cur = getCur(); cur[gid] = Math.max(0, parseInt(val) || 0); saveCur(cur);
-  const pull   = CONFIG.pulls[gid];
+  const pull   = CONFIG.pulls[gid]; if (!pull) return;
   const barPct = Math.min(100, Math.round(cur[gid] / (pull.hardPity * pull.perPull) * 100));
   const barEl  = document.getElementById('cbar-' + gid); if (barEl) barEl.style.width = barPct + '%';
 }
-
 function updatePity(gid, val) {
   const p = getPity(); p[gid] = Math.max(0, parseInt(val) || 0); savePity(p);
 }
-
 function updateCurrencyEarned(gid) {
-  // refresh just the earned row without rebuilding entire section
   const s = ws(); const g = GAMES.find(x => x.id === gid);
-  const pull = CONFIG.pulls[gid];
+  const pull = CONFIG.pulls[gid]; if (!pull) return;
   const earned = calcEarned(gid, s);
-  const cards = document.querySelectorAll('.currency-card');
-  cards.forEach(card => {
+  document.querySelectorAll('.currency-card').forEach(card => {
     const gameEl = card.querySelector('.cc-game');
     if (gameEl && gameEl.textContent === g.short) {
       const earnedEl = card.querySelectorAll('.cc-earned-val')[0];
@@ -628,13 +590,12 @@ function updateLT() {
     const cur = g.endgameModes.filter(m => getCy(m.cycleKey)).length;
     lt[key] = (lt[key]||0) + (cur > (lt[key]||0) ? cur - (lt[key]||0) : 0);
   });
-  lt.currentStreak  = getStreak();
-  lt.longestStreak  = Math.max(lt.longestStreak||0, getStreak());
-  // FIXED v5.4: was `lt.totalPerfectWeeks = (lt.totalPerfectWeeks||0)` — no-op
-  // Perfect week mid-session increment — rollover on Monday also increments via checkWeekRollover
+  lt.currentStreak = getStreak();
+  lt.longestStreak = Math.max(lt.longestStreak||0, getStreak());
+  // Perfect week mid-session increment (rollover on Monday also increments via checkWeekRollover)
   if (gPct(s) >= 100 && !(lt._perfectFlaggedWeek === wk())) {
     lt.totalPerfectWeeks = (lt.totalPerfectWeeks||0) + 1;
-    lt._perfectFlaggedWeek = wk(); // prevent double-counting within same week
+    lt._perfectFlaggedWeek = wk();
   }
   lt.hasNote = !!(localStorage.getItem(NK)?.length > 3 || localStorage.getItem(QNK)?.length > 3);
   saveLT(lt);
@@ -661,7 +622,7 @@ Total Cycle Clears: ${lt.totalCycleClears||0}
 CZN Lifetime Cycle Clears: ${lt.cznLifetimeCycleClears||0}
 WW Lifetime Cycle Clears: ${lt.wwLifetimeCycleClears||0}
 HSR Lifetime Cycle Clears: ${lt.hsrLifetimeCycleClears||0}
-SDS Lifetime Cycle Clears: ${lt.sdsLifetimeCycleClears||0}
+ZZZ Lifetime Cycle Clears: ${lt.zzzLifetimeCycleClears||0}
 Current Login Streak: ${lt.currentStreak||0}
 Longest Login Streak: ${lt.longestStreak||0}
 Total Perfect Weeks: ${lt.totalPerfectWeeks||0}
@@ -765,29 +726,20 @@ function setSyncStatus(state, msg) {
 }
 
 // ── ACHIEVEMENT CHECKING ──
-// Debounce extended to 60s for OPERATIVE+ — prevents accidental tap unlocks
-// SIGNAL tier uses 5s debounce (early milestones are intentionally easy)
-// Minimum 2 tasks completed before any permanent achievement can fire
 let achTimer = null;
-const ACH_DEBOUNCE_SIGNAL    = 5000;   // 5 seconds for SIGNAL
-const ACH_DEBOUNCE_OPERATIVE = 60000;  // 60 seconds for OPERATIVE and above
+const ACH_DEBOUNCE_SIGNAL    = 5000;
+const ACH_DEBOUNCE_OPERATIVE = 60000;
 const ACH_MIN_TASKS = 2;
 
 function checkAllAchievements() {
   clearTimeout(achTimer);
   const s  = ws(); const lt = getLT();
-
-  // Use tier-appropriate debounce
-  const couldFireOperative = ACHIEVEMENTS.some(a =>
-    a.tier !== 'signal' && !lt.unlockedAch?.[a.id]
-  );
+  const couldFireOperative = ACHIEVEMENTS.some(a => a.tier !== 'signal' && !lt.unlockedAch?.[a.id]);
   const debounce = couldFireOperative ? ACH_DEBOUNCE_OPERATIVE : ACH_DEBOUNCE_SIGNAL;
-
   achTimer = setTimeout(() => {
     const s2 = ws(); const lt2 = getLT();
     if (!lt2.unlockedAch) lt2.unlockedAch = {};
     const currentTasks = totalDone(s2);
-
     let changed = false;
     ACHIEVEMENTS.forEach(a => {
       if (!lt2.unlockedAch[a.id]) {
@@ -860,8 +812,8 @@ function checkWeekRollover() {
       g.daily.forEach((_,i)  => { t++; if (getv(pd,g.id,'daily',i))  d++; });
       g.weekly.forEach((_,i) => { t++; if (getv(pd,g.id,'weekly',i)) d++; });
     });
-    const prevPct    = t > 0 ? Math.round(d/t*100) : 0;
-    const prevCycles = cyclesDone(pd);
+    const prevPct  = t > 0 ? Math.round(d/t*100) : 0;
+    const prevCyc  = cyclesDone(pd);
     const lt = getLT(); const prevDisp = DISPATCHES.filter(ds => checkDispatch(ds, pd, lt)).length;
     if (prevPct >= 100) { lt.totalPerfectWeeks = (lt.totalPerfectWeeks||0)+1; saveLT(lt); }
     lt.weeksTracked = (lt.weeksTracked||0)+1; saveLT(lt);
@@ -869,9 +821,9 @@ function checkWeekRollover() {
     document.getElementById('modalStats').innerHTML = `
       <div class="ms"><div class="ms-val">${prevPct}%</div><div class="ms-lbl">Completion</div></div>
       <div class="ms"><div class="ms-val">${prevDisp}</div><div class="ms-lbl">Dispatches</div></div>
-      <div class="ms"><div class="ms-val">${prevCycles}</div><div class="ms-lbl">Cycle Clears</div></div>`;
+      <div class="ms"><div class="ms-val">${prevCyc}</div><div class="ms-lbl">Cycle Clears</div></div>`;
     document.getElementById('weekModal').classList.add('show');
-    pushSessionToNotion(prev, { pct: prevPct, dispatches: prevDisp, cycles: prevCycles });
+    pushSessionToNotion(prev, { pct: prevPct, dispatches: prevDisp, cycles: prevCyc });
   }
   localStorage.setItem(PREVWK, current);
 }
@@ -891,23 +843,21 @@ function closeModal(save) {
 
 // ── ACHIEVEMENTS VIEW ──
 function renderAchievements() {
-  const lt   = getLT(); const s = ws();
-  const ul   = lt.unlockedAch || {};
-  const ud   = lt.unlockedDispatches || {};
+  const lt  = getLT(); const s = ws();
+  const ul  = lt.unlockedAch || {};
   const tier = lt.highestTier || 'signal';
-
   const tierEl = document.getElementById('recordTier');
   if (tierEl) { tierEl.textContent = tier.toUpperCase(); tierEl.className = 'record-tier tier-' + tier; }
   const rg = document.getElementById('recordGrid');
   if (rg) rg.innerHTML = [
-    { v: lt.totalTasksCompleted||0,   l: 'Tasks Completed' },
-    { v: lt.totalCycleClears||0,      l: 'Cycle Clears' },
-    { v: lt.longestStreak||0,         l: 'Best Streak' },
+    { v: lt.totalTasksCompleted||0,    l: 'Tasks Completed' },
+    { v: lt.totalCycleClears||0,       l: 'Cycle Clears' },
+    { v: lt.longestStreak||0,          l: 'Best Streak' },
     { v: lt.currentStreak||getStreak(),l: 'Current Streak' },
-    { v: lt.totalPerfectWeeks||0,     l: 'Perfect Weeks' },
-    { v: lt.weeksTracked||0,          l: 'Weeks Tracked' },
-    { v: lt.totalDispatchesEarned||0, l: 'Dispatches Earned' },
-    { v: lt.deployDate||'—',          l: 'Deployed' },
+    { v: lt.totalPerfectWeeks||0,      l: 'Perfect Weeks' },
+    { v: lt.weeksTracked||0,           l: 'Weeks Tracked' },
+    { v: lt.totalDispatchesEarned||0,  l: 'Dispatches Earned' },
+    { v: lt.deployDate||'—',           l: 'Deployed' },
   ].map(s => `<div class="record-stat"><div class="rs-val">${s.v}</div><div class="rs-lbl">${s.l}</div></div>`).join('');
 
   const syncMsgEl = document.getElementById('syncMsg');
@@ -920,6 +870,7 @@ function renderAchievements() {
       }
     }, 4000);
   }
+
   const dg = document.getElementById('dispatchGrid');
   if (dg) dg.innerHTML = DISPATCHES.map(d => {
     const earned = checkDispatch(d, s, lt);
@@ -968,8 +919,8 @@ function buildCalendar() {
   const sun = new Date(mon);   sun.setDate(mon.getDate() + 6);
   const f = d => d.toLocaleDateString('en-US', { month:'short', day:'numeric' });
   document.getElementById('calTitle').textContent = `WEEK OF ${f(mon).toUpperCase()} — ${f(sun).toUpperCase()}`;
-  document.getElementById('calLegend').innerHTML = ['CZN','WW','HSR','7DSO'].map((n,i) =>
-    `<div class="cal-legend-item"><div class="ldot" style="background:${'#e84faa,#2de8a0,#9d7ff5,#f5a623'.split(',')[i]}"></div>${n}</div>`
+  document.getElementById('calLegend').innerHTML = ['CZN','WW','HSR','ZZZ'].map((n,i) =>
+    `<div class="cal-legend-item"><div class="ldot" style="background:${'#e84faa,#2de8a0,#9d7ff5,#4ab8f0'.split(',')[i]}"></div>${n}</div>`
   ).join('');
   const LC = { light:'#4ade80', medium:'#ffb347', heavy:'#ff5252' };
   const LP = { light:30, medium:60, heavy:90 };
@@ -1027,8 +978,10 @@ function render() {
   const f = x => x.toLocaleDateString('en-US', { month:'short', day:'numeric' });
   document.getElementById('weekLbl').textContent = `${f(d).toUpperCase()} — ${f(e).toUpperCase()}`;
   document.getElementById('footerDate').textContent = new Date().toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' }).toUpperCase();
-  document.getElementById('gameGrid').innerHTML  = GAMES.map(g => buildCard(g, s)).join('');
-  document.getElementById('zzzPassive').innerHTML = buildZZZ(s);
+  document.getElementById('gameGrid').innerHTML = GAMES.map(g => buildCard(g, s)).join('');
+  // ZZZ passive strip removed in v5.5 — ZZZ is now a full P4 game card
+  const zzzPassive = document.getElementById('zzzPassive');
+  if (zzzPassive) zzzPassive.innerHTML = '';
   try { document.getElementById('notesMain').value = localStorage.getItem(NK)  || ''; } catch {}
   try { document.getElementById('calNotes').value  = localStorage.getItem(CNK) || ''; } catch {}
   try { document.getElementById('quickNote').value = localStorage.getItem(QNK) || ''; } catch {}
@@ -1042,8 +995,8 @@ checkWeekRollover();
 render();
 updateLT();
 setTimeout(flushOutbox, 3000);
+setTimeout(initDebugLongPress, 500); // init after DOM settles
 
-// register service worker
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js')
