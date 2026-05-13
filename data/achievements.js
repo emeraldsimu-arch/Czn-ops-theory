@@ -1,17 +1,22 @@
 // ═══════════════════════════════════════════════════════════
-// NEXUS v5.4 — ACHIEVEMENTS
+// NEXUS v5.5 — ACHIEVEMENTS
 // SIGNAL → OPERATIVE → VANGUARD → PHANTOM
 // Weekly Dispatches (reset with week key)
+// Changes from v5.4:
+//   - s_fragment (SDS) → s_static (ZZZ signal achievement)
+//   - d_sds dispatch → d_zzz dispatch
+//   - v_knight (SDS 100%) → v_proxy (ZZZ 100%)
+//   - p_sin "The Sin That Remains" → "The Zero System Has Seen Everything" (CZN)
+//   - p_resonance threshold raised to 8 perfect weeks (from v5.4)
+//   - v_memory threshold raised to 6 HSR cycle clears (from v5.4)
 // ═══════════════════════════════════════════════════════════
 
-// ── WEEKLY DISPATCHES ──
-// Reset every week. Earning all 10 in a week feeds permanent achievement tracking.
 const DISPATCHES = [
   { id: 'd_first',   name: 'The First Draw',              condition: 'Check off your first task of the week' },
   { id: 'd_czn',     name: 'Aether Spent, Log Updated',   condition: 'Clear all CZN dailies in one session' },
   { id: 'd_ww',      name: 'Waveplates Accounted For',    condition: 'Clear all WW dailies in one session' },
   { id: 'd_hsr',     name: 'The Express Departs on Time', condition: 'Clear all HSR dailies in one session' },
-  { id: 'd_sds',     name: 'The Boar Hat Opens',          condition: 'Clear all 7DSO dailies in one session' },
+  { id: 'd_zzz',     name: 'Errands Filed, City Active',  condition: 'Clear all ZZZ dailies in one session' },
   { id: 'd_tower',   name: 'Five Floors, Five Times',     condition: 'Complete all 5 Spiral Tower attempts' },
   { id: 'd_mats',    name: 'Supply Lines Secured',        condition: 'Complete all material tasks across all games' },
   { id: 'd_cycles',  name: 'Three Theaters Cleared',      condition: 'Mark 3+ endgame cycle modes cleared in one week' },
@@ -19,16 +24,9 @@ const DISPATCHES = [
   { id: 'd_perfect', name: 'Nothing Left Undone',         condition: 'Hit 100% on all tasks across all games' },
 ];
 
-// ── PERMANENT ACHIEVEMENTS ──
-// Never reset. check(ws, lt) returns true when condition is met.
-// ws = current week state, lt = lifetime stats object
-//
 // NOTE ON HELPER FUNCTIONS:
-// totalDone, allDaily, cyclesDone etc. are defined in app.js and exist in the
-// same global scope as these check() functions at runtime. No stub overwriting
-// is needed — the browser resolves them from the global scope when check() fires.
-// The stubs at the bottom of this file exist only for documentation purposes
-// and to prevent reference errors if achievements.js is ever loaded in isolation.
+// totalDone, allDaily, cyclesDone etc. are defined in app.js in the same
+// global scope. Stubs below exist only for documentation / isolated testing.
 const ACHIEVEMENTS = [
 
   // ─────────── SIGNAL ───────────
@@ -63,10 +61,11 @@ const ACHIEVEMENTS = [
     check: (ws, lt) => allDaily('hsr', ws),
   },
   {
-    id: 's_fragment', tier: 'signal', game: 'SDS', icon: '🔱',
-    name: 'A Fragment in Hand',
-    flavor: "Star Fragments don't gather themselves. Someone has to start.",
-    check: (ws, lt) => allDaily('sds', ws),
+    // Replaces s_fragment (SDS) — ZZZ signal achievement
+    id: 's_static', tier: 'signal', game: 'ZZZ', icon: '📺',
+    name: 'Static Cleared, Signal Found',
+    flavor: "New Eridu runs on errands and Battery Charge. You've started spending both.",
+    check: (ws, lt) => allDaily('zzz', ws),
   },
   {
     id: 's_archive', tier: 'signal', game: 'ALL', icon: '📡',
@@ -172,7 +171,7 @@ const ACHIEVEMENTS = [
     id: 'v_memory', tier: 'vanguard', game: 'HSR', icon: '💭',
     name: 'The Memory Does Not Fade',
     flavor: 'Echoes of War. Echoes of Memory. Echoes of a player who kept clearing.',
-    check: (ws, lt) => (lt.hsrLifetimeCycleClears || 0) >= 6, // raised from 12; PHANTOM p_express fires at 12
+    check: (ws, lt) => (lt.hsrLifetimeCycleClears || 0) >= 6,
   },
   {
     id: 'v_screams', tier: 'vanguard', game: 'CZN', icon: '🗼',
@@ -181,10 +180,11 @@ const ACHIEVEMENTS = [
     check: (ws, lt) => spiralFull(ws) && (lt.totalCycleClears || 0) >= 15,
   },
   {
-    id: 'v_knight', tier: 'vanguard', game: 'SDS', icon: '☀️',
-    name: 'The Knight Does Not Rest',
-    flavor: "Escanor's power peaks at noon. Yours doesn't have an off-hour.",
-    check: (ws, lt) => gamePct(GAMES.find(g => g.id === 'sds'), ws) >= 100,
+    // Replaces v_knight (SDS 100%) — ZZZ vanguard achievement
+    id: 'v_proxy', tier: 'vanguard', game: 'ZZZ', icon: '📡',
+    name: 'The Proxy Doesn\'t Clock Out',
+    flavor: "New Eridu runs on proxies who show up. Every errand filed, every Battery Charge spent, every Shiyu floor cleared. The city noticed.",
+    check: (ws, lt) => gamePct(GAMES.find(g => g.id === 'zzz'), ws) >= 100,
   },
   {
     id: 'v_season', tier: 'vanguard', game: 'ALL', icon: '📌',
@@ -225,9 +225,11 @@ const ACHIEVEMENTS = [
     check: (ws, lt) => (lt.wwLifetimeCycleClears || 0) >= 100,
   },
   {
-    id: 'p_sin', tier: 'phantom', game: 'SDS', icon: '👑',
-    name: 'The Sin That Remains',
-    flavor: 'The Seven Deadly Sins name what drives people to destruction. This one drives you back every week.',
+    // Replaces p_sin "The Sin That Remains" — reworked to CZN theme
+    // Condition unchanged: unlock all other achievements
+    id: 'p_zero_system', tier: 'phantom', game: 'CZN', icon: '👑',
+    name: 'The Zero System Has Seen Everything',
+    flavor: "It doesn't announce when it's finished evaluating you. It just stops asking questions. Every achievement earned. Every front cleared. The Zero System made its assessment.",
     check: (ws, lt) => {
       const ul = lt.unlockedAch || {};
       return Object.keys(ul).length >= ACHIEVEMENTS.length - 1;
@@ -248,10 +250,7 @@ const ACHIEVEMENTS = [
 ];
 
 // ── Helper stubs ──
-// These exist so achievements.js is self-documenting and won't throw reference
-// errors if loaded in isolation (e.g. unit tests). At runtime in the browser,
-// app.js defines the real implementations in the same global scope and these
-// stubs are shadowed — no explicit overwriting or binding needed.
+// Real implementations in app.js resolve via shared global scope at runtime.
 function totalDone(ws) { return 0; }
 function allDaily(gid, ws) { return false; }
 function cyclesDone(ws) { return 0; }
