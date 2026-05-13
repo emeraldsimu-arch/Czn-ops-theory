@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════
-// NEXUS v5.3 — GAME DATA
+// NEXUS v5.4 — GAME DATA
 // Task lists, endgame modes, calendar plan
-// Last verified: 2026-05-12 (Game8, Prydwen, GameWith, wikis)
+// Last verified: 2026-05-13 (Game8, Prydwen, GameWith, wikis)
 // ═══════════════════════════════════════════════════════════
 
 const GAMES = [
@@ -28,6 +28,7 @@ const GAMES = [
       { t: 'Spend Aether on Simulation runs (×2 multiplier available)', tag: 'res', jade: 0 },
     ],
 
+    // Weekly tasks — endgame cycle clears removed (tracked via endgameModes below)
     weekly: [
       { t: 'Spiral Tower of Screams — attempt 1/5', tag: 'endgame', jade: 0 },
       { t: 'Spiral Tower of Screams — attempt 2/5', tag: 'endgame', jade: 0 },
@@ -42,6 +43,8 @@ const GAMES = [
     ],
 
     // Cycle clears — keyed to CONFIG.cycles, NOT the weekly reset
+    // Basin of Hyperspace and Full-Scale Offensive are cycle clears only (patch-length cycles)
+    // Sortie Mode is a weekly cycle clear (resets with Monday week key)
     endgameModes: [
       { id: 'czn_boh',    name: 'Basin of Hyperspace',   cycleKey: 'czn_boh' },
       { id: 'czn_fso',    name: 'Full-Scale Offensive',  cycleKey: 'czn_fso' },
@@ -71,20 +74,21 @@ const GAMES = [
       { t: 'Anniversary event missions', tag: 'event', jade: 0 },
     ],
 
+    // Weekly tasks — cycle clears (ToA, WhiWa, EM) removed; tracked via endgameModes
+    // Thousand Gateways is a true weekly reset (Monday) — kept here, not as cycle row
     weekly: [
-      { t: 'Tower of Adversity — full clear (Resonant + Echoing + Hazard Zone)', tag: 'endgame', jade: 800 },
-      { t: 'Whimpering Wastes — all Respawning Waters stages', tag: 'endgame', jade: 800 },
-      { t: 'Endstate Matrix — Doomsday Cycle phase clear', tag: 'endgame', jade: 150 },
       { t: 'Fantasies of Thousand Gateways — weekly run', tag: 'weekly', jade: 160 },
       { t: 'Weekly tacet discord boss materials ×3 cap', tag: 'mat', jade: 0 },
       { t: 'Cyberpunk Edgerunners collab event', tag: 'event', jade: 0, deadline: 'Jun 7' },
     ],
 
+    // Cycle clears — Tower of Adversity includes all zones (Resonant, Echoing, Hazard Zone)
+    // Hazard Zone is a sub-zone of ToA with its own 28-day internal reset — merged per audit
+    // ww_tg removed from here; it is a true weekly and lives in weekly[] above
     endgameModes: [
-      { id: 'ww_toa', name: 'Tower of Adversity (all zones)', cycleKey: 'ww_toa' },
-      { id: 'ww_ww',  name: 'Whimpering Wastes',             cycleKey: 'ww_ww' },
-      { id: 'ww_em',  name: 'Endstate Matrix (v3.3 phase)',  cycleKey: 'ww_em' },
-      { id: 'ww_tg',  name: 'Thousand Gateways',             cycleKey: 'ww_tg' },
+      { id: 'ww_toa', name: 'Tower of Adversity (all zones incl. Hazard Zone)', cycleKey: 'ww_toa' },
+      { id: 'ww_ww',  name: 'Whimpering Wastes',                                cycleKey: 'ww_ww' },
+      { id: 'ww_em',  name: 'Endstate Matrix (v3.3 phase)',                     cycleKey: 'ww_em' },
     ],
   },
 
@@ -110,22 +114,20 @@ const GAMES = [
       { t: 'Anniversary event missions', tag: 'event', jade: 0 },
     ],
 
+    // Weekly tasks — MoC, PF, AS, AA removed; tracked via endgameModes below
     weekly: [
-      { t: 'Memory of Chaos — full clear (800 SJ, 28-day cycle)', tag: 'endgame', jade: 800 },
-      { t: 'Pure Fiction — full clear (800 SJ, 28-day cycle)', tag: 'endgame', jade: 800 },
-      { t: 'Apocalyptic Shadow — full clear (800 SJ, 6-week cycle)', tag: 'endgame', jade: 800 },
-      { t: 'Anomaly Arbitration — 3-team run (Lone Stardust, 6-week cycle)', tag: 'endgame', jade: 0 },
       { t: 'Echo of War — weekly boss ×3 (material cap)', tag: 'mat', jade: 0 },
       { t: 'Simulated Universe / Currency Wars — Accumulated Points cap', tag: 'weekly', jade: 225 },
       { t: 'Nameless Honor — weekly missions', tag: 'weekly', jade: 0 },
       { t: 'Claim free Huohuo or Robin (ends Jun 1)', tag: 'prog', jade: 0, deadline: 'Jun 1' },
     ],
 
+    // Cycle clears — all four HSR endgame modes are 28-day or 6-week cycles
     endgameModes: [
-      { id: 'hsr_moc', name: 'Memory of Chaos',       cycleKey: 'hsr_moc' },
-      { id: 'hsr_pf',  name: 'Pure Fiction',           cycleKey: 'hsr_pf' },
-      { id: 'hsr_as',  name: 'Apocalyptic Shadow',     cycleKey: 'hsr_as' },
-      { id: 'hsr_aa',  name: 'Anomaly Arbitration',    cycleKey: 'hsr_aa' },
+      { id: 'hsr_moc', name: 'Memory of Chaos',    cycleKey: 'hsr_moc' },
+      { id: 'hsr_pf',  name: 'Pure Fiction',        cycleKey: 'hsr_pf' },
+      { id: 'hsr_as',  name: 'Apocalyptic Shadow',  cycleKey: 'hsr_as' },
+      { id: 'hsr_aa',  name: 'Anomaly Arbitration', cycleKey: 'hsr_aa' },
     ],
   },
 
@@ -145,6 +147,7 @@ const GAMES = [
     resetNote: 'Resets Monday 07:00 UTC',
 
     daily: [
+      // Note: Cube Keys stepper (0–50) flagged for v5.5 — currently checkbox
       { t: 'Spend 30 Cube Keys — Boss Challenge Abyss modes (10 keys each)', tag: 'res', jade: 0 },
       { t: 'Claim free 20 Cube Key bundle from shop', tag: 'res', jade: 0 },
       { t: 'Complete 4 daily missions (earns Star Fragments + Kingdom Seal)', tag: 'res', jade: 0 },
@@ -152,11 +155,8 @@ const GAMES = [
       { t: 'Daily field gathering (ores, Dandelion Roots before daily cap)', tag: 'mat', jade: 0 },
     ],
 
+    // Weekly tasks — Timespace Junction sectors removed; tracked via endgameModes below
     weekly: [
-      { t: 'Timespace Junction — Sector 1 clear', tag: 'endgame', jade: 0, cycleKey: 'sds_s1' },
-      { t: 'Timespace Junction — Sector 2 clear', tag: 'endgame', jade: 0, cycleKey: 'sds_s2' },
-      { t: 'Timespace Junction — Sector 3+4 (unlocks May 20)', tag: 'endgame', jade: 0, cycleKey: 'sds_s3', unlocks: '2026-05-20' },
-      { t: 'Timespace Junction — Sector 5+6 (unlocks June 10)', tag: 'endgame', jade: 0, cycleKey: 'sds_s5', unlocks: '2026-06-10' },
       { t: 'Abyss Mode — Galland of Truth (Cursed Pulse set, new v1.2)', tag: 'endgame', jade: 0 },
       { t: 'Abyss Mode — Ferzen Mines Dungeon (new armor sets, new v1.2)', tag: 'endgame', jade: 0 },
       { t: 'Starlight Watch — collect Star Fragments (resets Sunday)', tag: 'weekly', jade: 500 },
@@ -164,12 +164,12 @@ const GAMES = [
       { t: 'Check event deadlines', tag: 'event', jade: 0 },
     ],
 
-    // 7DSO cycle clears use rolling unlock dates from CONFIG.cycles
+    // Cycle clears — Timespace Junction sectors use rolling unlock dates from CONFIG.cycles
     endgameModes: [
-      { id: 'sds_s1', name: 'Timespace Junction S1',   cycleKey: 'sds_s1',  unlocks: '2026-04-29' },
-      { id: 'sds_s2', name: 'Timespace Junction S2',   cycleKey: 'sds_s2',  unlocks: '2026-05-06' },
-      { id: 'sds_s3', name: 'Timespace Junction S3+4', cycleKey: 'sds_s3',  unlocks: '2026-05-20' },
-      { id: 'sds_s5', name: 'Timespace Junction S5+6', cycleKey: 'sds_s5',  unlocks: '2026-06-10' },
+      { id: 'sds_s1', name: 'Timespace Junction S1',    cycleKey: 'sds_s1',  unlocks: '2026-04-29' },
+      { id: 'sds_s2', name: 'Timespace Junction S2',    cycleKey: 'sds_s2',  unlocks: '2026-05-06' },
+      { id: 'sds_s3', name: 'Timespace Junction S3+4',  cycleKey: 'sds_s3',  unlocks: '2026-05-20' },
+      { id: 'sds_s5', name: 'Timespace Junction S5+6',  cycleKey: 'sds_s5',  unlocks: '2026-06-10' },
     ],
   },
 ];
@@ -207,7 +207,7 @@ const WEEK_PLAN = [
   {
     day: 'WED', load: 'heavy', focus: 'WW Endgame Block',
     tasks: [
-      { l: 'WW Tower of Adversity (all zones)', c: '#2de8a0' },
+      { l: 'WW Tower of Adversity (all zones incl. Hazard Zone)', c: '#2de8a0' },
       { l: 'WW Whimpering Wastes',              c: '#2de8a0' },
       { l: 'HSR Daily + Sim Universe',          c: '#9d7ff5' },
       { l: 'CZN Spiral Tower ×1',              c: '#e84faa' },
