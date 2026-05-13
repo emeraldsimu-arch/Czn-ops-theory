@@ -1,4 +1,3 @@
-// ═══════════════════════════════════════════════════════════
 // NEXUS v5.4 — APP.JS
 // All application logic, state management, Notion sync
 // GitHub: Emereldsimu-arch/nexus
@@ -12,6 +11,11 @@
 //   - Calendar: today card linked to Today panel
 //   - Notion sync: visual confirmation flash on success
 //   - Achievements tab: timed fallback sync message
+// Changes from v5.4 audit:
+//   - hsrEndgameDone: fixed to check getCy() for 4 HSR cycle keys (was checking stale weekly[] indices)
+//   - wwEndgameDone: fixed to check getCy() for ww_toa and ww_ww (was checking stale weekly[] indices)
+//   - updateLT: fixed perfect week increment no-op (was setting value to itself, not incrementing)
+//   - window._nexusHelpers: removed dead code (helpers resolve via shared global scope, no binding needed)
 // ═══════════════════════════════════════════════════════════
 
 // ── STORAGE KEYS ──
@@ -102,7 +106,10 @@ function updateStreak() {
 }
 function getStreak() { try { return JSON.parse(localStorage.getItem(STRK) || '{"count":0}').count; } catch { return 0; } }
 
-// ── COMPUTED HELPERS (also bound into achievements.js scope) ──
+// ── COMPUTED HELPERS ──
+// These are defined in global scope and called directly by check() functions
+// in achievements.js — no binding or overwriting needed, the browser resolves
+// them from the shared global scope at runtime.
 function totalDone(s) {
   let d = 0;
   GAMES.forEach(g => {
@@ -113,8 +120,21 @@ function totalDone(s) {
 }
 function allDaily(gid, s) { return GAMES.find(g => g.id === gid).daily.every((_,i) => getv(s, gid, 'daily', i)); }
 function spiralFull(s)    { return [0,1,2,3,4].every(i => getv(s, 'czn', 'weekly', i)); }
-function hsrEndgameDone(s){ return [0,1,2,3].every(i => getv(s, 'hsr', 'weekly', i)); }
-function wwEndgameDone(s) { return getv(s,'ww','weekly',0) && getv(s,'ww','weekly',1); }
+
+// hsrEndgameDone — checks cycle clears for all 4 HSR endgame modes
+// FIXED v5.4: was checking hsr.weekly[0..3] which pointed to wrong tasks
+// after MoC/PF/AS/AA were removed from weekly[] in the duplicate audit
+function hsrEndgameDone(s) {
+  return getCy('hsr_moc') && getCy('hsr_pf') && getCy('hsr_as') && getCy('hsr_aa');
+}
+
+// wwEndgameDone — checks cycle clears for ToA and WhiWa
+// FIXED v5.4: was checking ww.weekly[0] and ww.weekly[1] which pointed to
+// Thousand Gateways and tacet boss after ToA/WhiWa were removed from weekly[]
+function wwEndgameDone(s) {
+  return getCy('ww_toa') && getCy('ww_ww');
+}
+
 function allMats(s) {
   let t = 0, d = 0;
   GAMES.forEach(g => {
@@ -166,12 +186,6 @@ function checkDispatch(d, s, lt) {
     default: return false;
   }
 }
-
-// Bind helpers into achievements.js scope
-// (achievements.js stubs are overwritten here at runtime)
-// This works because achievements.js loads before app.js, and these
-// reassignments update the closure scope used by check() functions
-window._nexusHelpers = { totalDone, allDaily, cyclesDone, gPct, gamePct, allMats, spiralFull, hsrEndgameDone, wwEndgameDone, dispatchesDone, getv };
 
 // ── CYCLE DATE HELPERS ──
 function daysUntilCycleEnds(cycleKey) {
@@ -593,7 +607,6 @@ function updateCurrencyEarned(gid) {
   const s = ws(); const g = GAMES.find(x => x.id === gid);
   const pull = CONFIG.pulls[gid];
   const earned = calcEarned(gid, s);
-  // find and update via DOM — just the earned value
   const cards = document.querySelectorAll('.currency-card');
   cards.forEach(card => {
     const gameEl = card.querySelector('.cc-game');
@@ -617,7 +630,12 @@ function updateLT() {
   });
   lt.currentStreak  = getStreak();
   lt.longestStreak  = Math.max(lt.longestStreak||0, getStreak());
-  if (gPct(s) >= 100) lt.totalPerfectWeeks = (lt.totalPerfectWeeks||0);
+  // FIXED v5.4: was `lt.totalPerfectWeeks = (lt.totalPerfectWeeks||0)` — no-op
+  // Perfect week mid-session increment — rollover on Monday also increments via checkWeekRollover
+  if (gPct(s) >= 100 && !(lt._perfectFlaggedWeek === wk())) {
+    lt.totalPerfectWeeks = (lt.totalPerfectWeeks||0) + 1;
+    lt._perfectFlaggedWeek = wk(); // prevent double-counting within same week
+  }
   lt.hasNote = !!(localStorage.getItem(NK)?.length > 3 || localStorage.getItem(QNK)?.length > 3);
   saveLT(lt);
   syncLTToNotion(lt);
@@ -740,7 +758,6 @@ function setSyncStatus(state, msg) {
   if (!dot || !m) return;
   dot.className = 'sync-dot' + (state==='pending'?' pending':state==='err'?' err':'');
   m.textContent = msg;
-  // Flash the sync indicator green briefly on success so user knows it worked
   if (state === 'ok') {
     dot.style.transform = 'scale(1.6)';
     setTimeout(() => { dot.style.transform = 'scale(1)'; }, 600);
@@ -754,15 +771,13 @@ function setSyncStatus(state, msg) {
 let achTimer = null;
 const ACH_DEBOUNCE_SIGNAL    = 5000;   // 5 seconds for SIGNAL
 const ACH_DEBOUNCE_OPERATIVE = 60000;  // 60 seconds for OPERATIVE and above
-const ACH_MIN_TASKS = 2; // minimum tasks completed before achievements fire
+const ACH_MIN_TASKS = 2;
 
 function checkAllAchievements() {
   clearTimeout(achTimer);
   const s  = ws(); const lt = getLT();
-  const tasksCompleted = totalDone(s);
 
   // Use tier-appropriate debounce
-  // If any OPERATIVE+ could potentially fire, use the longer debounce
   const couldFireOperative = ACHIEVEMENTS.some(a =>
     a.tier !== 'signal' && !lt.unlockedAch?.[a.id]
   );
@@ -776,7 +791,6 @@ function checkAllAchievements() {
     let changed = false;
     ACHIEVEMENTS.forEach(a => {
       if (!lt2.unlockedAch[a.id]) {
-        // OPERATIVE and above require minimum task threshold
         if (a.tier !== 'signal' && currentTasks < ACH_MIN_TASKS) return;
         try {
           if (a.check(s2, lt2)) {
@@ -882,7 +896,6 @@ function renderAchievements() {
   const ud   = lt.unlockedDispatches || {};
   const tier = lt.highestTier || 'signal';
 
-  // record
   const tierEl = document.getElementById('recordTier');
   if (tierEl) { tierEl.textContent = tier.toUpperCase(); tierEl.className = 'record-tier tier-' + tier; }
   const rg = document.getElementById('recordGrid');
@@ -897,7 +910,6 @@ function renderAchievements() {
     { v: lt.deployDate||'—',          l: 'Deployed' },
   ].map(s => `<div class="record-stat"><div class="rs-val">${s.v}</div><div class="rs-lbl">${s.l}</div></div>`).join('');
 
-  // Sync message fallback — if no sync has happened yet show helpful message
   const syncMsgEl = document.getElementById('syncMsg');
   if (syncMsgEl && syncMsgEl.textContent === 'Connecting to archive…') {
     setTimeout(() => {
@@ -917,7 +929,6 @@ function renderAchievements() {
     </div>`;
   }).join('');
 
-  // permanent tiers
   const TC = { signal:'var(--signal)', operative:'var(--operative)', vanguard:'var(--vanguard)', phantom:'var(--phantom)' };
   let html = '';
   ['signal','operative','vanguard','phantom'].forEach(t => {
@@ -969,7 +980,6 @@ function buildCalendar() {
     if (i < ti) lp = Math.max(5, lp - Math.round(compRatio * lp));
     const lc = lp > 65 ? LC.heavy : lp > 35 ? LC.medium : LC.light;
     const loadLabel = lp > 65 ? 'heavy' : lp > 35 ? 'medium' : 'light';
-    // Today's card gets extra context linking it to the Today panel
     const todayExtra = isT ? `<div style="font-family:'JetBrains Mono',monospace;font-size:7px;color:var(--czn);margin-top:4px;letter-spacing:.5px">↑ shown in today's priority</div>` : '';
     return `<div class="cal-day${isT?' today':''}">
       <div class="cal-dh"><span>${d.day}</span>${isT?'<span class="today-b">TODAY</span>':''}</div>
