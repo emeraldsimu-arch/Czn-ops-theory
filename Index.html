@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#08090c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="NEXUS">
+<title>NEXUS — Game Mission Tracker</title>
+<link rel="stylesheet" href="style.css">
+<link rel="manifest" href="manifest.json">
+</head>
+<body>
+<div class="scanline"></div>
+<div class="phantom-flash" id="phantomFlash"></div>
+<div class="toast-wrap" id="toastWrap"></div>
+
+<!-- END OF WEEK MODAL -->
+<div class="modal-overlay" id="weekModal">
+  <div class="modal">
+    <div class="modal-title">WEEK ARCHIVED</div>
+    <div class="modal-sub" id="modalSub">—</div>
+    <div class="modal-stats" id="modalStats"></div>
+    <div class="modal-label">Add a highlight before it archives</div>
+    <textarea class="modal-ta" id="modalHighlight" placeholder="Notable clears, pulls, breakthroughs — anything worth remembering…"></textarea>
+    <div class="modal-btns">
+      <button class="btn-secondary" onclick="closeModal(false)">Skip</button>
+      <button class="btn-primary"   onclick="closeModal(true)">Archive Week</button>
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+  <header class="site-header">
+    <div class="logo">NEX<span class="logo-accent">U</span>S<span class="logo-ver">v5.3</span></div>
+    <div class="hdr-right">
+      <span class="week-lbl" id="weekLbl"></span>
+      <div class="gbar-wrap">
+        <div class="gbar"><div class="gbar-fill" id="gbarFill" style="width:0%"></div></div>
+        <span class="gbar-pct" id="gbarPct">0%</span>
+      </div>
+      <button class="btn-xs" onclick="confirmReset()">↺ RESET</button>
+    </div>
+  </header>
+
+  <div class="fresh-banner" id="freshBanner">
+    <span>⚠</span><span id="freshMsg">Patch data may be outdated.</span>
+  </div>
+
+  <nav class="nav">
+    <div class="nav-tab active"  onclick="switchView('tracker',this)">Mission Tracker</div>
+    <div class="nav-tab"         onclick="switchView('calendar',this)">Weekly Planner</div>
+    <div class="nav-tab"         onclick="switchView('currency',this)">Currency</div>
+    <div class="nav-tab" id="achTab" onclick="switchView('achievements',this)">Achievements</div>
+  </nav>
+
+  <!-- TRACKER -->
+  <div class="view active" id="view-tracker">
+    <div id="todayPanel"></div>
+    <div class="dispatch-bar">
+      <span class="dispatch-label">Dispatches</span>
+      <div class="dispatch-track"><div class="dispatch-fill" id="dFill" style="width:0%"></div></div>
+      <div class="dispatch-pips" id="dPips"></div>
+      <span class="dispatch-count" id="dCount">0 / 10</span>
+    </div>
+    <div class="urg-section">
+      <div class="sec-hdr"><div class="pdot"></div>Endgame Alerts</div>
+      <div class="urg-row" id="urgRow"></div>
+    </div>
+    <div class="game-grid" id="gameGrid"></div>
+    <div id="zzzPassive"></div>
+    <div class="notes-card">
+      <div class="sec-hdr" style="margin-bottom:8px">Session Notes</div>
+      <div class="notes-mini">
+        <textarea class="notes-mini-ta" id="quickNote"
+          placeholder="Quick note for tonight…"
+          oninput="saveQuickNote()"></textarea>
+      </div>
+      <textarea class="notes-ta" id="notesMain"
+        placeholder="Full session notes — pull plans, team ideas, resource goals…"
+        oninput="saveNotes()"></textarea>
+    </div>
+  </div>
+
+  <!-- CALENDAR -->
+  <div class="view" id="view-calendar">
+    <div class="burn-card">
+      <div class="sec-hdr">Weekly Workload</div>
+      <div class="burn-games" id="burnGames"></div>
+    </div>
+    <div class="cal-title-row">
+      <div class="cal-title" id="calTitle"></div>
+      <div class="cal-legend" id="calLegend"></div>
+    </div>
+    <div class="cal-grid" id="calGrid"></div>
+    <div class="notes-card">
+      <div class="sec-hdr" style="margin-bottom:8px">Planning Notes</div>
+      <textarea class="notes-ta" id="calNotes"
+        placeholder="Schedule, pull targets, event prep…"
+        oninput="saveCalNotes()"></textarea>
+    </div>
+  </div>
+
+  <!-- CURRENCY -->
+  <div class="view" id="view-currency">
+    <div style="height:16px"></div>
+    <div class="sec-hdr" style="margin-bottom:12px">
+      Currency &amp; Pull Tracker
+      <span style="font-size:8px;color:var(--text-dim);margin-left:8px;font-family:'JetBrains Mono',monospace">Enter your current balance to track pulls &amp; pity</span>
+    </div>
+    <div id="currencySection" class="currency-section"></div>
+  </div>
+
+  <!-- ACHIEVEMENTS -->
+  <div class="view ach-view" id="view-achievements">
+    <div class="nexus-record" id="nexusRecord">
+      <div class="record-hdr">
+        <div class="record-title">NEXUS Record</div>
+        <div class="record-tier" id="recordTier">SIGNAL</div>
+      </div>
+      <div class="record-grid" id="recordGrid"></div>
+      <div class="record-sync">
+        <div class="sync-dot" id="syncDot"></div>
+        <span id="syncMsg">Connecting to archive…</span>
+      </div>
+    </div>
+    <div class="dispatch-section">
+      <div class="sec-hdr" style="margin-bottom:10px">This Week's Dispatches</div>
+      <div class="dispatch-weekly-grid" id="dispatchGrid"></div>
+    </div>
+    <div id="permAch"></div>
+  </div>
+
+  <footer class="footer">
+    <span id="footerDate"></span>
+    <div class="fresh-status">
+      <div class="fstatus-dot" id="fstatDot" style="background:var(--ok)"></div>
+      <span id="fstatMsg">Data current</span>
+    </div>
+    <span>GAME8 · PRYDWEN · WIKI · GAMEWITH</span>
+  </footer>
+</div>
+
+<!-- DATA FILES (order matters) -->
+<script src="data/config.js"></script>
+<script src="data/games.js"></script>
+<script src="data/achievements.js"></script>
+<!-- APP -->
+<script src="app.js"></script>
+</body>
+</html>
