@@ -1,13 +1,13 @@
 // ═══════════════════════════════════════════════════════════
-// NEXUS v5.3 — CONFIG
+// NEXUS v5.4 — CONFIG
 // ── THIS IS THE ONLY FILE THAT NEEDS UPDATING ON PATCH DAY ──
-// Last verified: 2026-05-12
+// Last verified: 2026-05-13
 // Next review: 2026-06-01 (earliest patch end — HSR 4.2)
 // ═══════════════════════════════════════════════════════════
 
 const CONFIG = {
-  version: '5.3',
-  lastVerified: '2026-05-12',
+  version: '5.4',
+  lastVerified: '2026-05-13',
 
   // ── Notion backend IDs ──
   // Update these if databases are recreated
@@ -34,12 +34,12 @@ const CONFIG = {
   cycles: {
     // HSR
     hsr_moc:  { ends: '2026-05-25', type: 'date',    label: 'Memory of Chaos' },
-    hsr_pf:   { ends: '2026-05-11', type: 'date',    label: 'Pure Fiction' },     // resets TODAY
+    hsr_pf:   { ends: '2026-06-22', type: 'date',    label: 'Pure Fiction' },           // reset May 11 → next Jun 22 (6-week cadence; source: Game8/Sportskeeda)
     hsr_as:   { ends: '2026-06-08', type: 'date',    label: 'Apocalyptic Shadow' },
     hsr_aa:   { ends: '2026-06-13', type: 'date',    label: 'Anomaly Arbitration' },
     // WW
-    ww_ww:    { ends: '2026-05-11', type: 'date',    label: 'Whimpering Wastes' }, // resets TODAY
-    ww_toa:   { ends: '2026-05-25', type: 'date',    label: 'Tower of Adversity (all zones)' },
+    ww_ww:    { ends: '2026-06-08', type: 'date',    label: 'Whimpering Wastes' },       // reset May 11 → next Jun 8 (source: Game8 v3.3 guide)
+    ww_toa:   { ends: '2026-05-25', type: 'date',    label: 'Tower of Adversity (all zones incl. Hazard Zone)' },
     ww_em:    { ends: '2026-06-07', type: 'patch',   label: 'Endstate Matrix (v3.3 phase)' },
     ww_tg:    { ends: 'weekly',     type: 'weekly',  label: 'Fantasies of Thousand Gateways' },
     // CZN — seasonal, tied to patch end
@@ -47,8 +47,8 @@ const CONFIG = {
     czn_fso:  { ends: '2026-07-08', type: 'patch',   label: 'Full-Scale Offensive' },
     czn_sortie:{ ends: 'weekly',    type: 'weekly',  label: 'Sortie Mode run' },
     // 7DSO — rolling sector unlock
-    sds_s1:   { ends: '2026-08-26', type: 'date',    label: 'Timespace Junction S1', unlocks: '2026-04-29' },
-    sds_s2:   { ends: '2026-08-26', type: 'date',    label: 'Timespace Junction S2', unlocks: '2026-05-06' },
+    sds_s1:   { ends: '2026-08-26', type: 'date',    label: 'Timespace Junction S1',   unlocks: '2026-04-29' },
+    sds_s2:   { ends: '2026-08-26', type: 'date',    label: 'Timespace Junction S2',   unlocks: '2026-05-06' },
     sds_s3:   { ends: '2026-08-26', type: 'date',    label: 'Timespace Junction S3+S4', unlocks: '2026-05-20' },
     sds_s5:   { ends: '2026-08-26', type: 'date',    label: 'Timespace Junction S5+S6', unlocks: '2026-06-10' },
   },
@@ -107,7 +107,7 @@ const CONFIG = {
     },
   ],
 
-  // ── Pull & pity system — verified 2026-05-12 ──
+  // ── Pull & pity system — verified 2026-05-13 ──
   // Sources: Prydwen, Game8, GameWith, official wikis
   pulls: {
     hsr: {
