@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-// NEXUS v5.3 — ACHIEVEMENTS
+// NEXUS v5.4 — ACHIEVEMENTS
 // SIGNAL → OPERATIVE → VANGUARD → PHANTOM
 // Weekly Dispatches (reset with week key)
 // ═══════════════════════════════════════════════════════════
@@ -22,6 +22,13 @@ const DISPATCHES = [
 // ── PERMANENT ACHIEVEMENTS ──
 // Never reset. check(ws, lt) returns true when condition is met.
 // ws = current week state, lt = lifetime stats object
+//
+// NOTE ON HELPER FUNCTIONS:
+// totalDone, allDaily, cyclesDone etc. are defined in app.js and exist in the
+// same global scope as these check() functions at runtime. No stub overwriting
+// is needed — the browser resolves them from the global scope when check() fires.
+// The stubs at the bottom of this file exist only for documentation purposes
+// and to prevent reference errors if achievements.js is ever loaded in isolation.
 const ACHIEVEMENTS = [
 
   // ─────────── SIGNAL ───────────
@@ -159,13 +166,13 @@ const ACHIEVEMENTS = [
     id: 'v_tacet', tier: 'vanguard', game: 'WW', icon: '🎵',
     name: 'Tacet Discord, Silenced Weekly',
     flavor: "The discord doesn't stop generating. You kept pace with it.",
-    check: (ws, lt) => getv(ws, 'ww', 'weekly', 4), // Echo of War ×3 cap task
+    check: (ws, lt) => getv(ws, 'ww', 'weekly', 1), // tacet boss ×3 cap — weekly[1] after duplicate removal
   },
   {
     id: 'v_memory', tier: 'vanguard', game: 'HSR', icon: '💭',
     name: 'The Memory Does Not Fade',
     flavor: 'Echoes of War. Echoes of Memory. Echoes of a player who kept clearing.',
-    check: (ws, lt) => (lt.hsrLifetimeCycleClears || 0) >= 12,
+    check: (ws, lt) => (lt.hsrLifetimeCycleClears || 0) >= 6, // raised from 12; PHANTOM p_express fires at 12
   },
   {
     id: 'v_screams', tier: 'vanguard', game: 'CZN', icon: '🗼',
@@ -235,14 +242,16 @@ const ACHIEVEMENTS = [
   {
     id: 'p_resonance', tier: 'phantom', game: 'WW', icon: '🌀',
     name: "The Resonance Doesn't Ask Permission",
-    flavor: "Resonance in Wuthering Waves isn't requested. It doesn't negotiate. After three perfect weeks across all four games, neither do you.",
-    check: (ws, lt) => (lt.totalPerfectWeeks || 0) >= 3 && GAMES.every(g => gamePct(g, ws) >= 100),
+    flavor: "Resonance in Wuthering Waves isn't requested. It doesn't negotiate. After eight perfect weeks across all four games, neither do you.",
+    check: (ws, lt) => (lt.totalPerfectWeeks || 0) >= 8 && GAMES.every(g => gamePct(g, ws) >= 100),
   },
 ];
 
-// ── Helper stubs — resolved by app.js at runtime ──
-// These are defined here as stubs so achievements.js is self-documenting
-// app.js overwrites them with live implementations before any check() is called
+// ── Helper stubs ──
+// These exist so achievements.js is self-documenting and won't throw reference
+// errors if loaded in isolation (e.g. unit tests). At runtime in the browser,
+// app.js defines the real implementations in the same global scope and these
+// stubs are shadowed — no explicit overwriting or binding needed.
 function totalDone(ws) { return 0; }
 function allDaily(gid, ws) { return false; }
 function cyclesDone(ws) { return 0; }
