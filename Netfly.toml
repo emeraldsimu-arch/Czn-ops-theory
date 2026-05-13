@@ -1,0 +1,48 @@
+# Netlify configuration for NEXUS tracker
+
+# â”€â”€ Build settings â”€â”€
+[build]
+  publish = "."
+
+# â”€â”€ Headers â”€â”€
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-XSS-Protection = "1; mode=block"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
+# â”€â”€ Cache: long-lived for versioned assets â”€â”€
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# â”€â”€ Cache: short for HTML/JS/CSS (stale-while-revalidate handles this) â”€â”€
+[[headers]]
+  for = "/*.html"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/*.js"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/*.css"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+# â”€â”€ Service worker: never cache â”€â”€
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+# â”€â”€ SPA routing: all routes serve index.html â”€â”€
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
