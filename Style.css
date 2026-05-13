@@ -1,7 +1,12 @@
 /* ═══════════════════════════════════════════════════════════
-   NEXUS v5.3 — STYLE
+   NEXUS v5.5 — STYLE
    Design system: dark tactical dashboard
    Fonts: Orbitron / Syne / JetBrains Mono
+   Changes from v5.4:
+     - ZZZ structural card accent added
+     - Collapsed + complete card: stronger green glow
+     - .game-card.collapsed.done-card rule added
+     - footerVer cursor style (debug long-press target)
    ═══════════════════════════════════════════════════════════ */
 
 @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Syne:wght@400;500;600;700&family=JetBrains+Mono:wght@300;400;500&display=swap');
@@ -27,7 +32,7 @@
   --ww:  #2de8a0; --ww-dim:  rgba(45,232,160,0.08);  --ww-glow:  rgba(45,232,160,0.2);
   --hsr: #9d7ff5; --hsr-dim: rgba(157,127,245,0.08); --hsr-glow: rgba(157,127,245,0.2);
   --sds: #f5a623; --sds-dim: rgba(245,166,35,0.08);  --sds-glow: rgba(245,166,35,0.2);
-  --zzz: #4ab8f0; --zzz-dim: rgba(74,184,240,0.08);
+  --zzz: #4ab8f0; --zzz-dim: rgba(74,184,240,0.08);  --zzz-glow: rgba(74,184,240,0.2);
 
   /* status */
   --danger: #ff5252;
@@ -223,14 +228,27 @@ body::before {
   position: relative;
 }
 .game-card:hover { border-color: var(--border2); }
-.game-card.done-card { border-color: rgba(74,222,128,.25); box-shadow: 0 0 14px rgba(74,222,128,.06); }
+
+/* Complete card — expanded */
+.game-card.done-card {
+  border-color: rgba(74,222,128,.25);
+  box-shadow: 0 0 14px rgba(74,222,128,.06);
+}
+
+/* Complete card — collapsed: stronger glow so it's scannable at a glance */
+.game-card.collapsed.done-card {
+  border-color: rgba(74,222,128,.55);
+  box-shadow: 0 0 16px rgba(74,222,128,.14), inset 0 0 0 1px rgba(74,222,128,.08);
+}
+
 .game-card.collapsed .task-body { display: none; }
 
 /* per-game structural accents */
 .game-card[data-game="czn"] .game-top::after { content: ''; position: absolute; top: 0; right: 0; width: 60px; height: 60px; background: linear-gradient(135deg, transparent 50%, rgba(232,79,170,.08) 50%); pointer-events: none; }
 .game-card[data-game="ww"]  .game-top::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 2px; background: repeating-linear-gradient(90deg, var(--ww) 0, var(--ww) 6px, transparent 6px, transparent 14px); opacity: .2; pointer-events: none; }
 .game-card[data-game="hsr"] .game-top::after { content: ''; position: absolute; top: 8px; right: 12px; width: 24px; height: 2px; background: var(--hsr); opacity: .3; box-shadow: 0 5px 0 var(--hsr), 0 10px 0 var(--hsr); pointer-events: none; }
-.game-card[data-game="sds"] .game-top::after { content: ''; position: absolute; top: 50%; right: 14px; transform: translateY(-50%); width: 16px; height: 16px; background: linear-gradient(var(--sds) 2px, transparent 2px) 0 7px, linear-gradient(90deg, var(--sds) 2px, transparent 2px) 7px 0; background-size: 16px 2px, 2px 16px; background-repeat: no-repeat; opacity: .18; pointer-events: none; }
+/* ZZZ: static/signal wave lines — horizontal scan pattern */
+.game-card[data-game="zzz"] .game-top::after { content: ''; position: absolute; top: 0; right: 0; bottom: 0; width: 40px; background: repeating-linear-gradient(180deg, transparent 0, transparent 4px, rgba(74,184,240,.06) 4px, rgba(74,184,240,.06) 5px); pointer-events: none; }
 
 .game-top { padding: 12px 14px 10px; position: relative; overflow: hidden; cursor: pointer; user-select: none; }
 .game-top::before { content: ''; position: absolute; inset: 0; background: var(--accent-dim); pointer-events: none; }
@@ -293,17 +311,6 @@ body::before {
 .ctext { font-size: 11px; font-weight: 600; color: var(--text-mid); flex: 1; }
 .cbadge { font-family: 'JetBrains Mono', monospace; font-size: 7px; padding: 1px 5px; border-radius: 2px; background: rgba(232,79,170,.08); color: var(--czn); letter-spacing: .3px; white-space: nowrap; }
 .cunlock { font-family: 'JetBrains Mono', monospace; font-size: 7px; color: var(--text-dim); white-space: nowrap; }
-
-/* ── PASSIVE ZZZ ── */
-.passive-card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; opacity: .55; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 12px; }
-.ptasks { display: flex; gap: 6px; flex-wrap: wrap; flex: 1; }
-.ptask { display: flex; align-items: center; gap: 5px; padding: 4px 8px; background: var(--bg3); border: 1px solid var(--border); border-radius: 4px; cursor: pointer; transition: background .1s; user-select: none; }
-.ptask:hover { background: rgba(74,184,240,.05); }
-.ptask.done { opacity: .28; } .ptask.done .ptt { text-decoration: line-through; }
-.pcheck { width: 11px; height: 11px; border: 1.5px solid var(--text-dim); border-radius: 2px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; transition: all .15s; }
-.ptask.done .pcheck { background: var(--zzz); border-color: var(--zzz); }
-.ptask.done .pcheck::after { content: ''; width: 5px; height: 3px; border-left: 1.5px solid #000; border-bottom: 1.5px solid #000; transform: rotate(-45deg) translateY(-1px); display: block; }
-.ptt { font-size: 11px; font-weight: 500; color: var(--text); }
 
 /* ── NOTES ── */
 .notes-card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin-bottom: 12px; }
@@ -385,7 +392,7 @@ body::before {
 .rs-val { font-family: 'Orbitron', monospace; font-size: 18px; font-weight: 700; color: var(--text-bright); line-height: 1; margin-bottom: 3px; }
 .rs-lbl { font-family: 'JetBrains Mono', monospace; font-size: 8px; color: var(--text-dim); letter-spacing: .5px; }
 .record-sync { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--text-dim); margin-top: 10px; display: flex; align-items: center; gap: 6px; }
-.sync-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--ok); flex-shrink: 0; }
+.sync-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--ok); flex-shrink: 0; transition: transform .3s; }
 .sync-dot.pending { background: var(--warn); animation: pulse 1.5s infinite; }
 .sync-dot.err { background: var(--danger); }
 .dispatch-section { margin-bottom: 16px; }
@@ -473,6 +480,9 @@ body::before {
 /* ── FOOTER ── */
 .footer { margin-top: 24px; padding-top: 12px; border-top: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
 .footer span { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--text-dim); }
+/* footerVer: debug long-press target — subtle cursor hint */
+#footerVer { cursor: pointer; user-select: none; }
+#footerVer:active { color: var(--text-mid); }
 .fresh-status { display: flex; align-items: center; gap: 5px; }
 .fstatus-dot { width: 5px; height: 5px; border-radius: 50%; }
 
