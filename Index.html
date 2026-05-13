@@ -13,7 +13,7 @@
 </head>
 <body>
 
-<!-- PIN GATE — shown before app loads if not authenticated -->
+<!-- PIN GATE -->
 <div id="pinGate" style="
   position:fixed;inset:0;background:#08090c;z-index:99999;
   display:flex;align-items:center;justify-content:center;
@@ -81,20 +81,19 @@ const PIN_KEY     = 'nexus_pin';
 const PIN_AUTH    = 'nexus_auth';
 const PIN_SESSION = 'nexus_session';
 let pinBuffer = '';
-let pinMode   = 'auth'; // 'set' or 'auth' or 'confirm'
+let pinMode   = 'auth';
 let pinConfirmBuffer = '';
 
 function pinInit() {
-  const stored = localStorage.getItem(PIN_KEY);
+  const stored  = localStorage.getItem(PIN_KEY);
   const session = sessionStorage.getItem(PIN_SESSION);
   if (session === 'ok') { pinGateHide(); return; }
   if (!stored) {
     pinMode = 'set';
     document.getElementById('pinSetupMsg').textContent = 'No PIN set. Enter a 4-digit PIN to secure NEXUS.';
   }
-  // keyboard support
   document.addEventListener('keydown', e => {
-    if (!document.getElementById('pinGate').style.display !== 'none') return;
+    if (document.getElementById('pinGate').style.display === 'none') return;
     if (e.key >= '0' && e.key <= '9') pinPress(e.key);
     if (e.key === 'Backspace') pinClear();
     if (e.key === 'Enter') pinSubmit();
@@ -120,9 +119,7 @@ function updatePinDots() {
 }
 
 function pinSubmit() {
-  if (pinBuffer.length < 4) {
-    showPinError('Enter 4 digits'); return;
-  }
+  if (pinBuffer.length < 4) { showPinError('Enter 4 digits'); return; }
   if (pinMode === 'set') {
     pinConfirmBuffer = pinBuffer; pinBuffer = '';
     updatePinDots();
@@ -143,7 +140,6 @@ function pinSubmit() {
     }
     return;
   }
-  // auth mode
   const stored = localStorage.getItem(PIN_KEY);
   if (stored && btoa(pinBuffer) === stored) {
     sessionStorage.setItem(PIN_SESSION, 'ok');
@@ -193,7 +189,7 @@ pinInit();
 
 <div class="wrap">
   <header class="site-header">
-    <div class="logo">NEX<span class="logo-accent">U</span>S<span class="logo-ver">v5.4</span></div>
+    <div class="logo">NEX<span class="logo-accent">U</span>S<span class="logo-ver">v5.5</span></div>
     <div class="hdr-right">
       <span class="week-lbl" id="weekLbl"></span>
       <div class="gbar-wrap">
@@ -229,6 +225,7 @@ pinInit();
       <div class="urg-row" id="urgRow"></div>
     </div>
     <div class="game-grid" id="gameGrid"></div>
+    <!-- zzzPassive kept for backwards compatibility; app.js clears it in v5.5 -->
     <div id="zzzPassive"></div>
     <div class="notes-card">
       <div class="sec-hdr" style="margin-bottom:8px">Session Notes</div>
@@ -298,7 +295,8 @@ pinInit();
       <div class="fstatus-dot" id="fstatDot" style="background:var(--ok)"></div>
       <span id="fstatMsg">Data current</span>
     </div>
-    <span>GAME8 · PRYDWEN · WIKI · GAMEWITH</span>
+    <!-- footerVer: long-press 600ms to trigger debug cycle reset -->
+    <span id="footerVer">GAME8 · PRYDWEN · WIKI · GAMEWITH</span>
   </footer>
 </div>
 
