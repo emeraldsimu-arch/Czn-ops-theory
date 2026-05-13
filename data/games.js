@@ -1,7 +1,12 @@
 // ═══════════════════════════════════════════════════════════
-// NEXUS v5.4 — GAME DATA
+// NEXUS v5.5 — GAME DATA
 // Task lists, endgame modes, calendar plan
-// Last verified: 2026-05-13 (Game8, Prydwen, GameWith, wikis)
+// Last verified: 2026-05-13 (Game8, Icy Veins, Fandom wiki, BitTopup)
+// Changes from v5.4:
+//   - ZZZ promoted to P4 full game card (was passive strip)
+//   - 7DSO removed entirely
+//   - ZZZ passive strip const removed
+//   - WEEK_PLAN updated: 7DSO references replaced with ZZZ
 // ═══════════════════════════════════════════════════════════
 
 const GAMES = [
@@ -15,9 +20,9 @@ const GAMES = [
     deadlineSoon: false,
     accent: '--czn',
     dim: '--czn-dim',
-    dailyLoad: 0.3,    // estimated hours for daily tasks
-    weeklyLoad: 1.5,   // estimated hours for weekly tasks
-    resetDay: 0,       // 0=Sunday (CZN resets Sunday 18:00 UTC — different from all others)
+    dailyLoad: 0.3,
+    weeklyLoad: 1.5,
+    resetDay: 0,       // Sunday 18:00 UTC
     resetNote: 'Resets Sunday 18:00 UTC',
 
     daily: [
@@ -28,7 +33,6 @@ const GAMES = [
       { t: 'Spend Aether on Simulation runs (×2 multiplier available)', tag: 'res', jade: 0 },
     ],
 
-    // Weekly tasks — endgame cycle clears removed (tracked via endgameModes below)
     weekly: [
       { t: 'Spiral Tower of Screams — attempt 1/5', tag: 'endgame', jade: 0 },
       { t: 'Spiral Tower of Screams — attempt 2/5', tag: 'endgame', jade: 0 },
@@ -42,13 +46,10 @@ const GAMES = [
       { t: 'Review event deadlines & limited content', tag: 'event', jade: 0 },
     ],
 
-    // Cycle clears — keyed to CONFIG.cycles, NOT the weekly reset
-    // Basin of Hyperspace and Full-Scale Offensive are cycle clears only (patch-length cycles)
-    // Sortie Mode is a weekly cycle clear (resets with Monday week key)
     endgameModes: [
-      { id: 'czn_boh',    name: 'Basin of Hyperspace',   cycleKey: 'czn_boh' },
-      { id: 'czn_fso',    name: 'Full-Scale Offensive',  cycleKey: 'czn_fso' },
-      { id: 'czn_sortie', name: 'Sortie Mode run',       cycleKey: 'czn_sortie' },
+      { id: 'czn_boh',    name: 'Basin of Hyperspace',  cycleKey: 'czn_boh' },
+      { id: 'czn_fso',    name: 'Full-Scale Offensive', cycleKey: 'czn_fso' },
+      { id: 'czn_sortie', name: 'Sortie Mode run',      cycleKey: 'czn_sortie' },
     ],
   },
 
@@ -64,7 +65,7 @@ const GAMES = [
     dim: '--ww-dim',
     dailyLoad: 0.4,
     weeklyLoad: 2.0,
-    resetDay: 1,       // Monday
+    resetDay: 1,
     resetNote: 'Resets Monday 04:00 server time',
 
     daily: [
@@ -74,17 +75,12 @@ const GAMES = [
       { t: 'Anniversary event missions', tag: 'event', jade: 0 },
     ],
 
-    // Weekly tasks — cycle clears (ToA, WhiWa, EM) removed; tracked via endgameModes
-    // Thousand Gateways is a true weekly reset (Monday) — kept here, not as cycle row
     weekly: [
       { t: 'Fantasies of Thousand Gateways — weekly run', tag: 'weekly', jade: 160 },
       { t: 'Weekly tacet discord boss materials ×3 cap', tag: 'mat', jade: 0 },
       { t: 'Cyberpunk Edgerunners collab event', tag: 'event', jade: 0, deadline: 'Jun 7' },
     ],
 
-    // Cycle clears — Tower of Adversity includes all zones (Resonant, Echoing, Hazard Zone)
-    // Hazard Zone is a sub-zone of ToA with its own 28-day internal reset — merged per audit
-    // ww_tg removed from here; it is a true weekly and lives in weekly[] above
     endgameModes: [
       { id: 'ww_toa', name: 'Tower of Adversity (all zones incl. Hazard Zone)', cycleKey: 'ww_toa' },
       { id: 'ww_ww',  name: 'Whimpering Wastes',                                cycleKey: 'ww_ww' },
@@ -114,7 +110,6 @@ const GAMES = [
       { t: 'Anniversary event missions', tag: 'event', jade: 0 },
     ],
 
-    // Weekly tasks — MoC, PF, AS, AA removed; tracked via endgameModes below
     weekly: [
       { t: 'Echo of War — weekly boss ×3 (material cap)', tag: 'mat', jade: 0 },
       { t: 'Simulated Universe / Currency Wars — Accumulated Points cap', tag: 'weekly', jade: 225 },
@@ -122,7 +117,6 @@ const GAMES = [
       { t: 'Claim free Huohuo or Robin (ends Jun 1)', tag: 'prog', jade: 0, deadline: 'Jun 1' },
     ],
 
-    // Cycle clears — all four HSR endgame modes are 28-day or 6-week cycles
     endgameModes: [
       { id: 'hsr_moc', name: 'Memory of Chaos',    cycleKey: 'hsr_moc' },
       { id: 'hsr_pf',  name: 'Pure Fiction',        cycleKey: 'hsr_pf' },
@@ -132,61 +126,45 @@ const GAMES = [
   },
 
   {
-    id: 'sds',
-    name: 'SEVEN DEADLY SINS: ORIGIN',
-    short: '7DSO',
+    id: 'zzz',
+    name: 'ZENLESS ZONE ZERO',
+    short: 'ZZZ',
     priority: 4,
-    patch: 'VER 1.2 — ESCANOR UPDATE',
-    deadline: 'Aug 26, 2026',
+    patch: 'VER 2.8 — NEW ERIDAN SUNSET',
+    deadline: 'Jun 10, 2026',
     deadlineSoon: false,
-    accent: '--sds',
-    dim: '--sds-dim',
-    dailyLoad: 0.3,
-    weeklyLoad: 1.0,
+    accent: '--zzz',
+    dim: '--zzz-dim',
+    dailyLoad: 0.2,
+    weeklyLoad: 1.5,
     resetDay: 1,
-    resetNote: 'Resets Monday 07:00 UTC',
+    resetNote: 'Resets Monday 04:00 server time (UTC+8)',
 
+    // Source: Game8, BitTopup, GameWith v2.8 guides
     daily: [
-      // Note: Cube Keys stepper (0–50) flagged for v5.5 — currently checkbox
-      { t: 'Spend 30 Cube Keys — Boss Challenge Abyss modes (10 keys each)', tag: 'res', jade: 0 },
-      { t: 'Claim free 20 Cube Key bundle from shop', tag: 'res', jade: 0 },
-      { t: 'Complete 4 daily missions (earns Star Fragments + Kingdom Seal)', tag: 'res', jade: 0 },
-      { t: 'Claim daily login reward', tag: 'res', jade: 0 },
-      { t: 'Daily field gathering (ores, Dandelion Roots before daily cap)', tag: 'mat', jade: 0 },
+      { t: 'Daily Errands ×4 — Login, Coffee, Scratch Cards, Video Store (60 Polychrome)', tag: 'res', jade: 60 },
+      { t: 'Spend Battery Charge in Combat Simulation / Routine Cleanup', tag: 'res', jade: 0 },
+      { t: 'HoYoLAB daily check-in (30 Polychrome)', tag: 'res', jade: 0 },
+      { t: 'Trust invites — 3 Agents daily (Trust Level progress)', tag: 'prog', jade: 0 },
     ],
 
-    // Weekly tasks — Timespace Junction sectors removed; tracked via endgameModes below
     weekly: [
-      { t: 'Abyss Mode — Galland of Truth (Cursed Pulse set, new v1.2)', tag: 'endgame', jade: 0 },
-      { t: 'Abyss Mode — Ferzen Mines Dungeon (new armor sets, new v1.2)', tag: 'endgame', jade: 0 },
-      { t: 'Starlight Watch — collect Star Fragments (resets Sunday)', tag: 'weekly', jade: 500 },
-      { t: 'Weekly shop — Star Fragment priority purchases', tag: 'mat', jade: 0 },
-      { t: 'Check event deadlines', tag: 'event', jade: 0 },
+      { t: 'Notorious Hunts — 3 free attempts (resets Monday)', tag: 'mat', jade: 0 },
+      { t: 'Ridu Weekly — complete all tasks (105 Polychrome)', tag: 'weekly', jade: 105 },
+      { t: 'New Eridu City Fund — weekly mission progress', tag: 'weekly', jade: 0 },
+      { t: 'v2.8 event missions — Operation: Save Bootopia', tag: 'event', jade: 0, deadline: 'Jun 10' },
     ],
 
-    // Cycle clears — Timespace Junction sectors use rolling unlock dates from CONFIG.cycles
+    // Bi-weekly cycles; Hollow Zero is weekly
     endgameModes: [
-      { id: 'sds_s1', name: 'Timespace Junction S1',    cycleKey: 'sds_s1',  unlocks: '2026-04-29' },
-      { id: 'sds_s2', name: 'Timespace Junction S2',    cycleKey: 'sds_s2',  unlocks: '2026-05-06' },
-      { id: 'sds_s3', name: 'Timespace Junction S3+4',  cycleKey: 'sds_s3',  unlocks: '2026-05-20' },
-      { id: 'sds_s5', name: 'Timespace Junction S5+6',  cycleKey: 'sds_s5',  unlocks: '2026-06-10' },
+      { id: 'zzz_shiyu',  name: 'Shiyu Defense / Critical Node', cycleKey: 'zzz_shiyu' },
+      { id: 'zzz_deadly', name: 'Deadly Assault',                cycleKey: 'zzz_deadly' },
+      { id: 'zzz_hollow', name: 'Hollow Zero / Operation Matrix',cycleKey: 'zzz_hollow' },
     ],
   },
 ];
 
-// ── ZZZ passive tracker ──
-const ZZZ = {
-  tasks: [
-    { t: 'Daily login & missions', id: 'z0' },
-    { t: 'Shiyu Defense',          id: 'z1' },
-    { t: 'Hollow Zero / Op. Matrix', id: 'z2' },
-    { t: 'Notorious Hunts',        id: 'z3' },
-  ]
-};
-
 // ── Weekly calendar plan ──
-// Used by the Weekly Planner tab
-// Load values are adjusted at render time based on live tracker completion state
 const WEEK_PLAN = [
   {
     day: 'MON', load: 'medium', focus: 'CZN + HSR Dailies',
@@ -194,14 +172,15 @@ const WEEK_PLAN = [
       { l: 'CZN Dailies + Spiral Tower ×2', c: '#e84faa' },
       { l: 'HSR Dailies + Trailblaze Power', c: '#9d7ff5' },
       { l: 'WW Dailies + Echo farm',         c: '#2de8a0' },
+      { l: 'ZZZ Errands + Battery Charge',   c: '#4ab8f0' },
     ]
   },
   {
-    day: 'TUE', load: 'light', focus: '7DSO + Materials',
+    day: 'TUE', load: 'light', focus: 'ZZZ + Materials',
     tasks: [
-      { l: '7DSO Dailies + Cube Keys spend', c: '#f5a623' },
-      { l: 'CZN Spiral Tower ×1',            c: '#e84faa' },
-      { l: 'WW Waveplate spend',             c: '#2de8a0' },
+      { l: 'ZZZ Notorious Hunts + Ridu Weekly', c: '#4ab8f0' },
+      { l: 'CZN Spiral Tower ×1',               c: '#e84faa' },
+      { l: 'WW Waveplate spend',                c: '#2de8a0' },
     ]
   },
   {
@@ -210,45 +189,45 @@ const WEEK_PLAN = [
       { l: 'WW Tower of Adversity (all zones incl. Hazard Zone)', c: '#2de8a0' },
       { l: 'WW Whimpering Wastes',              c: '#2de8a0' },
       { l: 'HSR Daily + Sim Universe',          c: '#9d7ff5' },
-      { l: 'CZN Spiral Tower ×1',              c: '#e84faa' },
+      { l: 'CZN Spiral Tower ×1',               c: '#e84faa' },
     ]
   },
   {
     day: 'THU', load: 'medium', focus: 'HSR Endgame Block',
     tasks: [
-      { l: 'HSR Memory of Chaos',          c: '#9d7ff5' },
-      { l: 'HSR Pure Fiction',             c: '#9d7ff5' },
-      { l: '7DSO Timespace Junction S1+2', c: '#f5a623' },
-      { l: 'CZN Basin of Hyperspace',      c: '#e84faa' },
+      { l: 'HSR Memory of Chaos',     c: '#9d7ff5' },
+      { l: 'HSR Pure Fiction',        c: '#9d7ff5' },
+      { l: 'ZZZ Hollow Zero run',     c: '#4ab8f0' },
+      { l: 'CZN Basin of Hyperspace', c: '#e84faa' },
     ]
   },
   {
-    day: 'FRI', load: 'heavy', focus: 'HSR + 7DSO Endgame',
+    day: 'FRI', load: 'heavy', focus: 'HSR + ZZZ Endgame',
     tasks: [
-      { l: 'HSR Apocalyptic Shadow',       c: '#9d7ff5' },
-      { l: 'HSR Anomaly Arbitration',      c: '#9d7ff5' },
-      { l: '7DSO Abyss Modes (Galland + Ferzen)', c: '#f5a623' },
-      { l: 'WW Endstate Matrix',           c: '#2de8a0' },
+      { l: 'HSR Apocalyptic Shadow',    c: '#9d7ff5' },
+      { l: 'HSR Anomaly Arbitration',   c: '#9d7ff5' },
+      { l: 'ZZZ Shiyu Defense / Deadly Assault', c: '#4ab8f0' },
+      { l: 'WW Endstate Matrix',        c: '#2de8a0' },
     ]
   },
   {
     day: 'SAT', load: 'medium', focus: 'CZN Deep Session',
     tasks: [
-      { l: 'CZN Sortie Mode run',          c: '#e84faa' },
-      { l: 'CZN Full-Scale Offensive',     c: '#e84faa' },
-      { l: 'WW Thousand Gateways',         c: '#2de8a0' },
-      { l: 'Mop-up any missed dailies',    c: '#4a5468' },
+      { l: 'CZN Sortie Mode run',      c: '#e84faa' },
+      { l: 'CZN Full-Scale Offensive', c: '#e84faa' },
+      { l: 'WW Thousand Gateways',     c: '#2de8a0' },
+      { l: 'Mop-up any missed dailies',c: '#4a5468' },
     ]
   },
   {
     day: 'SUN', load: 'light', focus: 'Catch-up + CZN Weekly Reset',
     tasks: [
       { l: 'CZN weekly reset — Guild Office + Nono Shop', c: '#e84faa' },
-      { l: '7DSO Starlight Watch + shop',  c: '#f5a623' },
-      { l: 'Any missed endgame modes',     c: '#4a5468' },
-      { l: 'Plan next week pulls',         c: '#4a5468' },
+      { l: 'ZZZ Trust invites + event check',  c: '#4ab8f0' },
+      { l: 'Any missed endgame modes',         c: '#4a5468' },
+      { l: 'Plan next week pulls',             c: '#4a5468' },
     ]
   },
 ];
 
-if (typeof module !== 'undefined') { module.exports = { GAMES, ZZZ, WEEK_PLAN }; }
+if (typeof module !== 'undefined') { module.exports = { GAMES, WEEK_PLAN }; }
