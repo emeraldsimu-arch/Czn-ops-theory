@@ -8,6 +8,8 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="NEXUS">
 <title>NEXUS — Game Mission Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="style.css">
 <link rel="manifest" href="manifest.json">
 </head>
@@ -189,7 +191,7 @@ pinInit();
 
 <div class="wrap">
   <header class="site-header">
-    <div class="logo">NEX<span class="logo-accent">U</span>S<span class="logo-ver">v5.5</span></div>
+    <div class="logo">NEX<span class="logo-accent">U</span>S<span class="logo-ver">v5.6</span></div>
     <div class="hdr-right">
       <span class="week-lbl" id="weekLbl"></span>
       <div class="gbar-wrap">
@@ -225,8 +227,6 @@ pinInit();
       <div class="urg-row" id="urgRow"></div>
     </div>
     <div class="game-grid" id="gameGrid"></div>
-    <!-- zzzPassive kept for backwards compatibility; app.js clears it in v5.5 -->
-    <div id="zzzPassive"></div>
     <div class="notes-card">
       <div class="sec-hdr" style="margin-bottom:8px">Session Notes</div>
       <div class="notes-mini">
@@ -240,17 +240,27 @@ pinInit();
     </div>
   </div>
 
-  <!-- CALENDAR -->
+  <!-- CALENDAR / WEEKLY PLANNER -->
   <div class="view" id="view-calendar">
+
+    <!-- Section 1: Featured Day — session planning card -->
+    <div id="featuredDay"></div>
+
+    <!-- Section 2: Week Strip — compact 7-day horizontal scroll -->
+    <div class="week-strip-wrap">
+      <div class="cal-title-row">
+        <div class="cal-title" id="calTitle"></div>
+      </div>
+      <div class="week-strip" id="weekStrip"></div>
+    </div>
+
+    <!-- Section 3: Workload Burn Chart -->
     <div class="burn-card">
       <div class="sec-hdr">Weekly Workload</div>
       <div class="burn-games" id="burnGames"></div>
     </div>
-    <div class="cal-title-row">
-      <div class="cal-title" id="calTitle"></div>
-      <div class="cal-legend" id="calLegend"></div>
-    </div>
-    <div class="cal-grid" id="calGrid"></div>
+
+    <!-- Section 4: Planning Notes -->
     <div class="notes-card">
       <div class="sec-hdr" style="margin-bottom:8px">Planning Notes</div>
       <textarea class="notes-ta" id="calNotes"
@@ -279,7 +289,7 @@ pinInit();
       <div class="record-grid" id="recordGrid"></div>
       <div class="record-sync">
         <div class="sync-dot" id="syncDot"></div>
-        <span id="syncMsg">Connecting to archive…</span>
+        <span id="syncMsg">—</span>
       </div>
     </div>
     <div class="dispatch-section">
