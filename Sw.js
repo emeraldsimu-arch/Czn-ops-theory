@@ -1,12 +1,15 @@
-// NEXUS v5.3 — Service Worker
-// Strategy: stale-while-revalidate
-// Serves cached version instantly, fetches update in background, applies on next load
+// NEXUS v5.6 — SERVICE WORKER
+// Stale-while-revalidate caching strategy
+// Changes from v5.5:
+//   - Cache name bumped to nexus-v56-static
+//   - Activate handler deletes all caches not matching current version
+//     This forces fresh HTML on next load after deploy, preventing
+//     the v5.3 shell / v5.5 JS mismatch seen in production
+// ═══════════════════════════════════════════════════════════
 
-const CACHE_NAME = 'nexus-v5.3';
-const DATA_CACHE = 'nexus-data-v5.3';
+const CACHE_NAME = 'nexus-v56-static';
 
-// Core files to cache on install
-const CORE_FILES = [
+const PRECACHE = [
   '/',
   '/index.html',
   '/style.css',
@@ -15,66 +18,55 @@ const CORE_FILES = [
   '/data/games.js',
   '/data/achievements.js',
   '/manifest.json',
-  'https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Syne:wght@400;500;600;700&family=JetBrains+Mono:wght@300;400;500&display=swap'
 ];
 
-// ── INSTALL ──
+// Install — precache all core assets
 self.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => {
-      return cache.addAll(CORE_FILES);
-    }).then(() => self.skipWaiting())
+    caches.open(CACHE_NAME).then(cache => cache.addAll(PRECACHE))
   );
+  // Take over immediately without waiting for old SW to finish
+  self.skipWaiting();
 });
 
-// ── ACTIVATE ──
-// Clean up old caches when a new SW takes over
+// Activate — delete ALL old caches, not just ones we know about
+// This is the critical fix: old version caches are purged on every deploy
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(keys =>
       Promise.all(
         keys
-          .filter(key => key !== CACHE_NAME && key !== DATA_CACHE)
-          .map(key => caches.delete(key))
+          .filter(key => key !== CACHE_NAME)
+          .map(key => {
+            console.log('NEXUS SW: deleting old cache', key);
+            return caches.delete(key);
+          })
       )
-    ).then(() => self.clients.claim())
+    ).then(() => self.clients.claim()) // Take control of all open tabs immediately
   );
 });
 
-// ── FETCH — stale-while-revalidate ──
+// Fetch — stale-while-revalidate
+// Serve from cache immediately, update cache in background
 self.addEventListener('fetch', event => {
-  // Skip non-GET and cross-origin API calls (Notion, Anthropic)
+  // Only cache same-origin GET requests — never cache API calls or Notion
   if (event.request.method !== 'GET') return;
-  const url = new URL(event.request.url);
-  if (url.hostname.includes('anthropic.com') ||
-      url.hostname.includes('notion.com') ||
-      url.hostname.includes('googleapis.com') && url.pathname.includes('fonts/css')) {
-    // Let font CSS through stale-while-revalidate, skip API calls
-    if (url.hostname.includes('anthropic.com') || url.hostname.includes('notion.com')) return;
-  }
+  if (!event.request.url.startsWith(self.location.origin)) return;
 
   event.respondWith(
     caches.open(CACHE_NAME).then(cache =>
       cache.match(event.request).then(cached => {
-        const fetchPromise = fetch(event.request)
-          .then(response => {
-            if (response && response.status === 200 && response.type === 'basic') {
-              cache.put(event.request, response.clone());
-            }
-            return response;
-          })
-          .catch(() => null);
+        const networkFetch = fetch(event.request).then(response => {
+          // Only cache valid responses
+          if (response && response.status === 200 && response.type === 'basic') {
+            cache.put(event.request, response.clone());
+          }
+          return response;
+        }).catch(() => cached); // Network fail — fall back to cache silently
 
-        // Return cached immediately, update in background
-        return cached || fetchPromise;
+        // Return cached immediately if available, otherwise wait for network
+        return cached || networkFetch;
       })
     )
   );
-});
-
-// ── MESSAGE — force update ──
-self.addEventListener('message', event => {
-  if (event.data === 'skipWaiting') {
-    self.skipWaiting();
-  }
 });
