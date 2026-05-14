@@ -1,14 +1,17 @@
 // ═══════════════════════════════════════════════════════════
-// NEXUS v5.5 — ACHIEVEMENTS
+// NEXUS v5.6 — ACHIEVEMENTS
 // SIGNAL → OPERATIVE → VANGUARD → PHANTOM
 // Weekly Dispatches (reset with week key)
-// Changes from v5.4:
-//   - s_fragment (SDS) → s_static (ZZZ signal achievement)
-//   - d_sds dispatch → d_zzz dispatch
-//   - v_knight (SDS 100%) → v_proxy (ZZZ 100%)
-//   - p_sin "The Sin That Remains" → "The Zero System Has Seen Everything" (CZN)
-//   - p_resonance threshold raised to 8 perfect weeks (from v5.4)
-//   - v_memory threshold raised to 6 HSR cycle clears (from v5.4)
+// Changes from v5.5:
+//   - o_event: condition redesigned — no longer uses criticalEventsCompleted
+//     (field was never written; achievement was permanently locked)
+//     New: complete all dailies for any one game on 3 separate days in a week
+//   - p_trailblaze: condition redesigned — no longer uses criticalEventsMissed
+//     (field was never written; achievement was permanently locked)
+//     New: complete all HSR dailies on 4 separate days AND all 4 HSR endgame
+//     modes cleared in the same week
+//   - Both conditions now read from lt.dailyCompletions[gid] which is
+//     written by updateLT() in app.js — single owner, always current
 // ═══════════════════════════════════════════════════════════
 
 const DISPATCHES = [
@@ -61,7 +64,6 @@ const ACHIEVEMENTS = [
     check: (ws, lt) => allDaily('hsr', ws),
   },
   {
-    // Replaces s_fragment (SDS) — ZZZ signal achievement
     id: 's_static', tier: 'signal', game: 'ZZZ', icon: '📺',
     name: 'Static Cleared, Signal Found',
     flavor: "New Eridu runs on errands and Battery Charge. You've started spending both.",
@@ -112,10 +114,19 @@ const ACHIEVEMENTS = [
     check: (ws, lt) => GAMES.filter(g => gamePct(g, ws) >= 75).length >= 2,
   },
   {
+    // Redesigned from v5.5 — previous condition used criticalEventsCompleted
+    // which was never written anywhere in the codebase (permanently locked).
+    // New condition: complete all dailies for any one game on 3 separate days
+    // in the current week. Reads lt.dailyCompletions[gid] (flat integer, written
+    // by updateLT() — resets each Monday with the week key).
+    // Fits flavor: "The Window Did Not Close" — consistent daily attention.
     id: 'o_event', tier: 'operative', game: 'ALL', icon: '🗓',
     name: 'The Window Did Not Close',
     flavor: 'Someone told you it was expiring. You listened.',
-    check: (ws, lt) => (lt.criticalEventsCompleted || 0) >= 1,
+    check: (ws, lt) => {
+      const dc = lt.dailyCompletions || {};
+      return ['czn','ww','hsr','zzz'].some(gid => (dc[gid] || 0) >= 3);
+    },
   },
   {
     id: 'o_spiral', tier: 'operative', game: 'CZN', icon: '🗼',
@@ -165,7 +176,7 @@ const ACHIEVEMENTS = [
     id: 'v_tacet', tier: 'vanguard', game: 'WW', icon: '🎵',
     name: 'Tacet Discord, Silenced Weekly',
     flavor: "The discord doesn't stop generating. You kept pace with it.",
-    check: (ws, lt) => getv(ws, 'ww', 'weekly', 1), // tacet boss ×3 cap — weekly[1] after duplicate removal
+    check: (ws, lt) => getv(ws, 'ww', 'weekly', 0), // tacet boss ×3 cap — weekly[0] after ww_tg removal
   },
   {
     id: 'v_memory', tier: 'vanguard', game: 'HSR', icon: '💭',
@@ -180,9 +191,8 @@ const ACHIEVEMENTS = [
     check: (ws, lt) => spiralFull(ws) && (lt.totalCycleClears || 0) >= 15,
   },
   {
-    // Replaces v_knight (SDS 100%) — ZZZ vanguard achievement
     id: 'v_proxy', tier: 'vanguard', game: 'ZZZ', icon: '📡',
-    name: 'The Proxy Doesn\'t Clock Out',
+    name: "The Proxy Doesn't Clock Out",
     flavor: "New Eridu runs on proxies who show up. Every errand filed, every Battery Charge spent, every Shiyu floor cleared. The city noticed.",
     check: (ws, lt) => gamePct(GAMES.find(g => g.id === 'zzz'), ws) >= 100,
   },
@@ -213,10 +223,20 @@ const ACHIEVEMENTS = [
     check: (ws, lt) => (lt.hsrLifetimeCycleClears || 0) >= 12,
   },
   {
+    // Redesigned from v5.5 — previous condition used criticalEventsCompleted
+    // and criticalEventsMissed, neither of which was ever written anywhere
+    // in the codebase (permanently locked at 0).
+    // New condition: complete all HSR dailies on 4 separate days in a week
+    // AND all 4 HSR endgame modes cleared that same week.
+    // Reads lt.dailyCompletions.hsr (flat integer, written by updateLT) and
+    // getCy() for modes. Appropriately hard for PHANTOM tier.
     id: 'p_trailblaze', tier: 'phantom', game: 'HSR', icon: '✨',
     name: 'The Trailblaze Continues',
     flavor: "The Trailblaze isn't a title the Express gives you. It's what remains after everything else has been stripped away.",
-    check: (ws, lt) => (lt.criticalEventsCompleted || 0) >= 4 && (lt.criticalEventsMissed || 0) === 0,
+    check: (ws, lt) => {
+      const hsrDailyDays = (lt.dailyCompletions || {}).hsr || 0;
+      return hsrDailyDays >= 4 && hsrEndgameDone(ws);
+    },
   },
   {
     id: 'p_fractures', tier: 'phantom', game: 'WW', icon: '💎',
@@ -225,8 +245,6 @@ const ACHIEVEMENTS = [
     check: (ws, lt) => (lt.wwLifetimeCycleClears || 0) >= 100,
   },
   {
-    // Replaces p_sin "The Sin That Remains" — reworked to CZN theme
-    // Condition unchanged: unlock all other achievements
     id: 'p_zero_system', tier: 'phantom', game: 'CZN', icon: '👑',
     name: 'The Zero System Has Seen Everything',
     flavor: "It doesn't announce when it's finished evaluating you. It just stops asking questions. Every achievement earned. Every front cleared. The Zero System made its assessment.",
