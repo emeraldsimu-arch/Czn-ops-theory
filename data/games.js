@@ -1,12 +1,11 @@
 // ═══════════════════════════════════════════════════════════
-// NEXUS v5.5 — GAME DATA
+// NEXUS v5.6 — GAME DATA
 // Task lists, endgame modes, calendar plan
-// Last verified: 2026-05-13 (Game8, Icy Veins, Fandom wiki, BitTopup)
-// Changes from v5.4:
-//   - ZZZ promoted to P4 full game card (was passive strip)
-//   - 7DSO removed entirely
-//   - ZZZ passive strip const removed
-//   - WEEK_PLAN updated: 7DSO references replaced with ZZZ
+// Last verified: 2026-05-14 (Game8, Icy Veins, Fandom wiki, BitTopup)
+// Changes from v5.5:
+//   - ww_tg (Fantasies of Thousand Gateways) moved from WW weekly[]
+//     to WW endgameModes[] — it is a cycle clear, not a weekly task
+//   - WW weekly[] reduced from 3 to 2 items accordingly
 // ═══════════════════════════════════════════════════════════
 
 const GAMES = [
@@ -22,7 +21,7 @@ const GAMES = [
     dim: '--czn-dim',
     dailyLoad: 0.3,
     weeklyLoad: 1.5,
-    resetDay: 0,       // Sunday 18:00 UTC
+    resetDay: 0,
     resetNote: 'Resets Sunday 18:00 UTC',
 
     daily: [
@@ -66,7 +65,7 @@ const GAMES = [
     dailyLoad: 0.4,
     weeklyLoad: 2.0,
     resetDay: 1,
-    resetNote: 'Resets Monday 04:00 server time',
+    resetNote: 'Resets Monday 04:00 UTC+8 (20:00 UTC Sunday)',
 
     daily: [
       { t: 'Spend Waveplates on Echo / material farming', tag: 'res', jade: 60 },
@@ -76,15 +75,20 @@ const GAMES = [
     ],
 
     weekly: [
-      { t: 'Fantasies of Thousand Gateways — weekly run', tag: 'weekly', jade: 160 },
+      // ww_tg moved to endgameModes — it is a cycle clear with a weekly reset,
+      // not a weekly task. Keeping it here caused it to be counted twice
+      // (once in weekly tasks, once in urgency/cycle tracking).
       { t: 'Weekly tacet discord boss materials ×3 cap', tag: 'mat', jade: 0 },
       { t: 'Cyberpunk Edgerunners collab event', tag: 'event', jade: 0, deadline: 'Jun 7' },
     ],
 
+    // ww_tg added here — weekly type in config means it resets with the WW
+    // weekly key (Monday 20:00 UTC), consistent with all other weekly cycles
     endgameModes: [
       { id: 'ww_toa', name: 'Tower of Adversity (all zones incl. Hazard Zone)', cycleKey: 'ww_toa' },
-      { id: 'ww_ww',  name: 'Whimpering Wastes',                                cycleKey: 'ww_ww' },
-      { id: 'ww_em',  name: 'Endstate Matrix (v3.3 phase)',                     cycleKey: 'ww_em' },
+      { id: 'ww_ww',  name: 'Whimpering Wastes',                                cycleKey: 'ww_ww'  },
+      { id: 'ww_em',  name: 'Endstate Matrix (v3.3 phase)',                     cycleKey: 'ww_em'  },
+      { id: 'ww_tg',  name: 'Fantasies of Thousand Gateways',                   cycleKey: 'ww_tg'  },
     ],
   },
 
@@ -101,7 +105,7 @@ const GAMES = [
     dailyLoad: 0.4,
     weeklyLoad: 2.5,
     resetDay: 1,
-    resetNote: 'Resets Monday 04:00 server time',
+    resetNote: 'Resets Monday 04:00 UTC-5 (10:00 UTC)',
 
     daily: [
       { t: 'Spend Trailblaze Power (stamina)', tag: 'res', jade: 60 },
@@ -119,9 +123,9 @@ const GAMES = [
 
     endgameModes: [
       { id: 'hsr_moc', name: 'Memory of Chaos',    cycleKey: 'hsr_moc' },
-      { id: 'hsr_pf',  name: 'Pure Fiction',        cycleKey: 'hsr_pf' },
-      { id: 'hsr_as',  name: 'Apocalyptic Shadow',  cycleKey: 'hsr_as' },
-      { id: 'hsr_aa',  name: 'Anomaly Arbitration', cycleKey: 'hsr_aa' },
+      { id: 'hsr_pf',  name: 'Pure Fiction',        cycleKey: 'hsr_pf'  },
+      { id: 'hsr_as',  name: 'Apocalyptic Shadow',  cycleKey: 'hsr_as'  },
+      { id: 'hsr_aa',  name: 'Anomaly Arbitration', cycleKey: 'hsr_aa'  },
     ],
   },
 
@@ -138,9 +142,8 @@ const GAMES = [
     dailyLoad: 0.2,
     weeklyLoad: 1.5,
     resetDay: 1,
-    resetNote: 'Resets Monday 04:00 server time (UTC+8)',
+    resetNote: 'Resets Monday 04:00 UTC-5 (10:00 UTC)',
 
-    // Source: Game8, BitTopup, GameWith v2.8 guides
     daily: [
       { t: 'Daily Errands ×4 — Login, Coffee, Scratch Cards, Video Store (60 Polychrome)', tag: 'res', jade: 60 },
       { t: 'Spend Battery Charge in Combat Simulation / Routine Cleanup', tag: 'res', jade: 0 },
@@ -155,9 +158,8 @@ const GAMES = [
       { t: 'v2.8 event missions — Operation: Save Bootopia', tag: 'event', jade: 0, deadline: 'Jun 10' },
     ],
 
-    // Bi-weekly cycles; Hollow Zero is weekly
     endgameModes: [
-      { id: 'zzz_shiyu',  name: 'Shiyu Defense / Critical Node', cycleKey: 'zzz_shiyu' },
+      { id: 'zzz_shiyu',  name: 'Shiyu Defense / Critical Node', cycleKey: 'zzz_shiyu'  },
       { id: 'zzz_deadly', name: 'Deadly Assault',                cycleKey: 'zzz_deadly' },
       { id: 'zzz_hollow', name: 'Hollow Zero / Operation Matrix',cycleKey: 'zzz_hollow' },
     ],
@@ -204,10 +206,10 @@ const WEEK_PLAN = [
   {
     day: 'FRI', load: 'heavy', focus: 'HSR + ZZZ Endgame',
     tasks: [
-      { l: 'HSR Apocalyptic Shadow',    c: '#9d7ff5' },
-      { l: 'HSR Anomaly Arbitration',   c: '#9d7ff5' },
+      { l: 'HSR Apocalyptic Shadow',             c: '#9d7ff5' },
+      { l: 'HSR Anomaly Arbitration',            c: '#9d7ff5' },
       { l: 'ZZZ Shiyu Defense / Deadly Assault', c: '#4ab8f0' },
-      { l: 'WW Endstate Matrix',        c: '#2de8a0' },
+      { l: 'WW Endstate Matrix',                 c: '#2de8a0' },
     ]
   },
   {
@@ -223,9 +225,9 @@ const WEEK_PLAN = [
     day: 'SUN', load: 'light', focus: 'Catch-up + CZN Weekly Reset',
     tasks: [
       { l: 'CZN weekly reset — Guild Office + Nono Shop', c: '#e84faa' },
-      { l: 'ZZZ Trust invites + event check',  c: '#4ab8f0' },
-      { l: 'Any missed endgame modes',         c: '#4a5468' },
-      { l: 'Plan next week pulls',             c: '#4a5468' },
+      { l: 'ZZZ Trust invites + event check',             c: '#4ab8f0' },
+      { l: 'Any missed endgame modes',                    c: '#4a5468' },
+      { l: 'Plan next week pulls',                        c: '#4a5468' },
     ]
   },
 ];
