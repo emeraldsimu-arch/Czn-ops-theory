@@ -1,18 +1,18 @@
 // ═══════════════════════════════════════════════════════════
-// NEXUS v5.5 — CONFIG
+// NEXUS v5.6 — CONFIG
 // ── THIS IS THE ONLY FILE THAT NEEDS UPDATING ON PATCH DAY ──
-// Last verified: 2026-05-13
+// Last verified: 2026-05-14
 // Next review: 2026-06-01 (earliest patch end — HSR 4.2)
-// Changes from v5.4:
-//   - ZZZ promoted to P4 active game (was passive strip)
-//   - 7DSO removed from all tracking
-//   - ZZZ patch, cycles, pulls, weeklyYields added
-//   - sds entries removed throughout
+// Changes from v5.5:
+//   - resetTimes block added — per-game daily/weekly UTC reset hours
+//   - All four games on America server (UTC-5): daily reset 10:00 UTC
+//   - WW uses UTC+8 server: daily reset 20:00 UTC
+//   - CZN: no daily reset (weekly only), Sunday 18:00 UTC
 // ═══════════════════════════════════════════════════════════
 
 const CONFIG = {
-  version: '5.5',
-  lastVerified: '2026-05-13',
+  version: '5.6',
+  lastVerified: '2026-05-14',
 
   // ── Notion backend IDs ──
   notion: {
@@ -22,12 +22,24 @@ const CONFIG = {
     sessionDsId:   '08655493-ca9f-456d-8165-ef138d50b152',
   },
 
+  // ── Per-game reset times (UTC) ──
+  // America server (UTC-5): 4AM local = 10:00 UTC
+  // WW uses UTC+8 server:   4AM local = 20:00 UTC (previous calendar day)
+  // CZN: no daily reset; weekly resets Sunday 18:00 UTC
+  // weeklyDay: 0=Sunday, 1=Monday
+  resetTimes: {
+    hsr: { dailyUTC: 10, weeklyDay: 1, weeklyUTC: 10 },
+    ww:  { dailyUTC: 20, weeklyDay: 1, weeklyUTC: 20 },
+    zzz: { dailyUTC: 10, weeklyDay: 1, weeklyUTC: 10 },
+    czn: { dailyUTC: null, weeklyDay: 0, weeklyUTC: 18 },
+  },
+
   // ── Patch windows ──
   patches: [
-    { game: 'czn', version: 'Season 3', ends: '2026-07-08', resetDay: 0 }, // 0 = Sunday
+    { game: 'czn', version: 'Season 3', ends: '2026-07-08', resetDay: 0 },
     { game: 'ww',  version: '3.3',      ends: '2026-06-07', resetDay: 1 },
     { game: 'hsr', version: '4.2',      ends: '2026-06-01', resetDay: 1 },
-    { game: 'zzz', version: '2.8',      ends: '2026-06-10', resetDay: 1 }, // v3.0 Jun 17; source: Game8, BuffHub
+    { game: 'zzz', version: '2.8',      ends: '2026-06-10', resetDay: 1 },
   ],
 
   // ── Endgame cycle end dates ──
@@ -47,9 +59,9 @@ const CONFIG = {
     czn_boh:    { ends: '2026-07-08', type: 'patch',  label: 'Basin of Hyperspace' },
     czn_fso:    { ends: '2026-07-08', type: 'patch',  label: 'Full-Scale Offensive' },
     czn_sortie: { ends: 'weekly',     type: 'weekly', label: 'Sortie Mode run' },
-    // ZZZ — bi-weekly cycles; source: Icy Veins, Game8 v2.8 guide
-    zzz_shiyu:  { ends: '2026-05-27', type: 'date',   label: 'Shiyu Defense / Critical Node' }, // ~2-week cycle; next reset May 15 per Icy Veins
-    zzz_deadly: { ends: '2026-05-22', type: 'date',   label: 'Deadly Assault' },               // resets every other Friday
+    // ZZZ
+    zzz_shiyu:  { ends: '2026-05-27', type: 'date',   label: 'Shiyu Defense / Critical Node' },
+    zzz_deadly: { ends: '2026-05-22', type: 'date',   label: 'Deadly Assault' },
     zzz_hollow: { ends: 'weekly',     type: 'weekly', label: 'Hollow Zero / Operation Matrix' },
   },
 
@@ -143,8 +155,8 @@ const CONFIG = {
     zzz: {
       currency:      'Polychrome',
       currencyShort: 'PC',
-      perPull:       160,  // 160 Polychrome = 1 Master Tape; source: Game8, BitTopup
-      softPity:      75,   // community-verified ~75–80
+      perPull:       160,
+      softPity:      75,
       hardPity:      90,
       worstCase:     180,
       has50_50:      true,
@@ -177,11 +189,11 @@ const CONFIG = {
       note: '~620 Crystals/week from dailies + Guild Office.'
     },
     zzz: {
-      daily:   420,  // 60 Polychrome/day × 7 from Daily Errands; source: Game8, BitTopup
-      endgame: 335,  // Shiyu Critical Node ~180/wk avg (360/bi-weekly) + Deadly Assault ~75/wk avg (150/bi-weekly) + Hollow Zero 160/wk
-      weekly:  105,  // Ridu Weekly missions; source: Icy Veins
+      daily:   420,
+      endgame: 335,
+      weekly:  105,
       events:  0,
-      note: '~775 PC/week F2P: 420 dailies + 105 Ridu Weekly + 360 Shiyu (bi-wkly) + 150 Deadly Assault (bi-wkly) + 160 Hollow Zero. Source: BitTopup ZZZ guide.'
+      note: '~775 PC/week F2P: 420 dailies + 105 Ridu Weekly + 360 Shiyu (bi-wkly) + 150 Deadly Assault (bi-wkly) + 160 Hollow Zero.'
     },
   },
 };
