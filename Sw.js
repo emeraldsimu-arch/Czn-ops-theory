@@ -1,18 +1,12 @@
 // NEXUS v5.6 — SERVICE WORKER
-// Stale-while-revalidate caching strategy
-// Changes from v5.5:
-//   - Cache name bumped to nexus-v56-static
-//   - Activate handler deletes all caches not matching current version
-//     This forces fresh HTML on next load after deploy
-// Changes from Netlify → GitHub Pages migration:
-//   - PRECACHE paths updated for /czn-ops-theory/ subdirectory
-//   - BASE_PATH added so fetch handler correctly scopes to repo subdirectory
+// GitHub Pages: emeraldsimu-arch.github.io/czn-ops-theory
+// Changes from Netlify version:
+//   - BASE_PATH set to /czn-ops-theory/ subdirectory
+//   - PRECACHE and fetch handler scoped accordingly
 // ═══════════════════════════════════════════════════════════
 
 const CACHE_NAME = 'nexus-v56-static';
-
-// GitHub Pages serves from /czn-ops-theory/ — all paths must include this prefix
-const BASE_PATH = '/czn-ops-theory';
+const BASE_PATH  = '/czn-ops-theory';
 
 const PRECACHE = [
   BASE_PATH + '/',
@@ -23,9 +17,10 @@ const PRECACHE = [
   BASE_PATH + '/data/games.js',
   BASE_PATH + '/data/achievements.js',
   BASE_PATH + '/manifest.json',
+  BASE_PATH + '/icons/icon-192.png',
+  BASE_PATH + '/icons/icon-512.png',
 ];
 
-// Install — precache all core assets
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME).then(cache => cache.addAll(PRECACHE))
@@ -33,7 +28,6 @@ self.addEventListener('install', event => {
   self.skipWaiting();
 });
 
-// Activate — delete ALL old caches on every deploy
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(keys =>
@@ -49,13 +43,9 @@ self.addEventListener('activate', event => {
   );
 });
 
-// Fetch — stale-while-revalidate
-// Only cache requests within our subdirectory — never cache API or Notion calls
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
   if (!event.request.url.startsWith(self.location.origin)) return;
-
-  // Only handle requests within our subdirectory
   const url = new URL(event.request.url);
   if (!url.pathname.startsWith(BASE_PATH)) return;
 
@@ -68,7 +58,6 @@ self.addEventListener('fetch', event => {
           }
           return response;
         }).catch(() => cached);
-
         return cached || networkFetch;
       })
     )
