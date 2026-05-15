@@ -1,17 +1,16 @@
 // ═══════════════════════════════════════════════════════════
-// NEXUS v5.6 — CONFIG
+// NEXUS v5.8 — CONFIG
 // ── THIS IS THE ONLY FILE THAT NEEDS UPDATING ON PATCH DAY ──
 // Last verified: 2026-05-15
 // Next review: 2026-05-22 (ZZZ Deadly Assault resets)
-// Changes from v5.5:
-//   - resetTimes block added — per-game daily/weekly UTC reset hours
-//   - All four games on America server (UTC-5): daily reset 10:00 UTC
-//   - WW uses UTC+8 server: daily reset 20:00 UTC
-//   - CZN: no daily reset (weekly only), Sunday 18:00 UTC
+// Changes from v5.7:
+//   - czn resetTimes: dailyUTC corrected from null to 18
+//     CZN dailies reset daily at 18:00 UTC — same time as weekly reset
+//     Verified: Game8, GameWith, Destructoid (May 2026)
 // ═══════════════════════════════════════════════════════════
 
 const CONFIG = {
-  version: '5.7',
+  version: '5.8',
   lastVerified: '2026-05-15',
 
   // ── Notion backend IDs ──
@@ -25,13 +24,15 @@ const CONFIG = {
   // ── Per-game reset times (UTC) ──
   // America server (UTC-5): 4AM local = 10:00 UTC
   // WW uses UTC+8 server:   4AM local = 20:00 UTC (previous calendar day)
-  // CZN: no daily reset; weekly resets Sunday 18:00 UTC
+  // CZN: daily AND weekly reset at 18:00 UTC
+  //   - Daily: every day at 18:00 UTC (verified Game8 + GameWith May 2026)
+  //   - Weekly: Sunday 18:00 UTC (same time, different cadence)
   // weeklyDay: 0=Sunday, 1=Monday
   resetTimes: {
     hsr: { dailyUTC: 10, weeklyDay: 1, weeklyUTC: 10 },
     ww:  { dailyUTC: 20, weeklyDay: 1, weeklyUTC: 20 },
     zzz: { dailyUTC: 10, weeklyDay: 1, weeklyUTC: 10 },
-    czn: { dailyUTC: null, weeklyDay: 0, weeklyUTC: 18 },
+    czn: { dailyUTC: 18, weeklyDay: 0, weeklyUTC: 18 },
   },
 
   // ── Patch windows ──
