@@ -1,21 +1,12 @@
-// NEXUS v5.6 — APP.JS
+// NEXUS v5.7 — APP.JS
 // All application logic, state management, Notion sync
 // GitHub: Emereldsimu-arch/nexus
-// Changes from v5.5:
-//   - dk() added — per-game daily key respecting actual game reset times
-//   - Daily task state now stored under dk(gid) instead of wk()
-//   - wk() updated to accept gameId for CZN Sunday reset handling
-//   - togCy() is now sole owner of lifetime cycle clear increments
-//   - updateLT() cycle clear section removed (was causing delta undercount)
-//   - updateLT() perfect week section removed (was causing double-count)
-//   - checkWeekRollover() is now sole owner of totalPerfectWeeks increment
-//   - wwEndgameDone() updated — now checks all 4 WW cycle keys incl. ww_tg
-//   - updateCurrency() now updates pull count display live
-//   - buildUrgency() now sorts by days remaining ascending
-//   - lt.dailyCompletions[gid] added — tracks daily full-clears per game per week
-//   - Sync status idle state — no more stuck "Connecting to archive" message
-//   - criticalEventsCompleted / criticalEventsMissed removed entirely
-//   - Version bump to 5.6
+// Changes from v5.6:
+//   - checkCycleFreshness() added — scans CONFIG.cycles for date-type entries
+//     expiring within 7 days and flags lastVerified staleness (>14 days)
+//   - checkFreshness() updated — now calls checkCycleFreshness() and merges
+//     cycle expiry warnings into the existing freshness banner system
+//   - Version bump to 5.7
 // ═══════════════════════════════════════════════════════════
 
 // ── STORAGE KEYS ──
@@ -293,18 +284,96 @@ function cycleResetLabel(cycleKey) {
   return d + 'd left';
 }
 
+// ── CYCLE FRESHNESS CHECK ──
+// Scans CONFIG.cycles for date-type entries expiring within 7 days.
+// Also checks if lastVerified is more than 14 days old.
+// Returns: { stale: bool, warnings: string[], soonest: {label, days} | null }
+// Owner: checkFreshness() only. Pure read — no side effects.
+function checkCycleFreshness() {
+  const today = new Date(); today.setHours(0,0,0,0);
+  const warnings = [];
+  let soonest = null;
+
+  // Check lastVerified staleness
+  if (CONFIG.lastVerified) {
+    const verified = new Date(CONFIG.lastVerified); verified.setHours(0,0,0,0);
+    const daysSince = Math.floor((today - verified) / (1000*60*60*24));
+    if (daysSince > 14) {
+      warnings.push(`Data last verified ${daysSince}d ago — review recommended`);
+    }
+  }
+
+  // Scan all date-type cycles for upcoming expirations
+  Object.entries(CONFIG.cycles).forEach(([key, cycle]) => {
+    if (cycle.type !== 'date') return;
+    const end = new Date(cycle.ends); end.setHours(0,0,0,0);
+    const days = Math.ceil((end - today) / (1000*60*60*24));
+
+    // Already expired — flag as stale
+    if (days < 0) {
+      // Find which game this cycle belongs to for a better label
+      const game = GAMES.find(g => g.endgameModes.some(m => m.cycleKey === key));
+      const gameLabel = game ? game.short : key.split('_')[0].toUpperCase();
+      warnings.push(`${gameLabel} ${cycle.label} date expired — update config`);
+    } else if (days <= 7) {
+      const game = GAMES.find(g => g.endgameModes.some(m => m.cycleKey === key));
+      const gameLabel = game ? game.short : key.split('_')[0].toUpperCase();
+      const msg = days === 0
+        ? `${gameLabel} ${cycle.label} resets TODAY`
+        : `${gameLabel} ${cycle.label} resets in ${days}d`;
+      warnings.push(msg);
+      if (!soonest || days < soonest.days) {
+        soonest = { label: msg, days };
+      }
+    }
+  });
+
+  const hasExpired = warnings.some(w => w.includes('expired'));
+  return { stale: hasExpired, warnings, soonest };
+}
+
 // ── FRESHNESS CHECK ──
+// v5.7: now incorporates cycle-level freshness via checkCycleFreshness().
+// Priority: patch expired (red) > cycle date expired (red) >
+//           patch ending soon (amber) > cycle ending soon (amber) > all clear (green)
 function checkFreshness() {
   const today = new Date(); today.setHours(0,0,0,0);
   let stale = false, warn = false, msg = '';
   let soonestDiff = Infinity; let soonestPatch = null;
+
+  // Check patch windows
   CONFIG.patches.forEach(p => {
     const end  = new Date(p.ends); end.setHours(0,0,0,0);
     const diff = Math.floor((end - today) / (1000*60*60*24));
     if (diff < 0) { stale = true; msg = `${p.game.toUpperCase()} v${p.version} data may be outdated`; }
     else if (diff <= 7 && diff < soonestDiff) { soonestDiff = diff; soonestPatch = p; }
   });
-  if (!stale && soonestPatch) { warn = true; msg = `${soonestPatch.game.toUpperCase()} patch ends in ${soonestDiff}d`; }
+
+  // Check cycle-level freshness
+  const cf = checkCycleFreshness();
+  if (!stale && cf.stale) {
+    // A cycle date has expired — escalate to stale
+    stale = true;
+    msg = cf.warnings.find(w => w.includes('expired')) || 'Cycle data may be outdated';
+  }
+
+  if (!stale && soonestPatch) {
+    warn = true;
+    msg = `${soonestPatch.game.toUpperCase()} patch ends in ${soonestDiff}d`;
+  }
+
+  // Cycle expiry warning (amber) — only if no higher-priority warning already set
+  if (!stale && !warn && cf.soonest) {
+    warn = true;
+    msg = cf.soonest.label;
+  }
+
+  // If we have multiple cycle warnings, append a count so the operator knows
+  // there's more than one thing to check
+  if (!stale && warn && cf.warnings.length > 1) {
+    msg += ` (+${cf.warnings.length - 1} more)`;
+  }
+
   const banner = document.getElementById('freshBanner');
   const fDot   = document.getElementById('fstatDot');
   const fMsg   = document.getElementById('fstatMsg');
@@ -315,7 +384,7 @@ function checkFreshness() {
     if (fMsg) fMsg.textContent = 'Data stale';
   } else if (warn) {
     banner.className = 'fresh-banner show';
-    document.getElementById('freshMsg').textContent = msg + ' — update may be needed soon.';
+    document.getElementById('freshMsg').textContent = msg + ' — verify dates before next session.';
     if (fDot) fDot.style.background = 'var(--warn)';
     if (fMsg) fMsg.textContent = 'Check recommended';
   } else {
