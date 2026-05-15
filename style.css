@@ -371,23 +371,20 @@ body::after {
 .game-card[data-game="hsr"]::before { animation: breatheHSR 5s ease-in-out infinite; animation-delay: 3.2s; }
 .game-card[data-game="zzz"]::before { animation: breatheZZZ 5s ease-in-out infinite; animation-delay: 4.4s; }
 
-/* diagonal corner cut — top right */
-.game-card::after {
-  content: ''; position: absolute; top: 0; right: 0; z-index: 3; pointer-events: none;
-  width: 0; height: 0;
-  border-style: solid; border-width: 0 24px 24px 0;
-  border-color: transparent var(--bg) transparent transparent;
+/* diagonal corner cut — clip-path on card so glow line isn't masked */
+.game-card {
+  clip-path: polygon(0 0, calc(100% - 22px) 0, 100% 22px, 100% 100%, 0 100%);
 }
 
-/* diagonal cut glow line */
+/* diagonal cut glow line — sits on game-top, now fully visible */
 .game-top::before {
   content: ''; position: absolute; top: 0; right: 0; z-index: 4; pointer-events: none;
-  width: 36px; height: 1px;
-  background: linear-gradient(90deg, transparent, var(--accent));
+  width: 32px; height: 2px;
+  background: linear-gradient(270deg, transparent 0%, var(--accent) 100%);
   transform: rotate(45deg);
   transform-origin: 100% 0;
-  opacity: 0.7;
   animation: breatheGlow 5s ease-in-out infinite;
+  box-shadow: 0 0 6px var(--accent);
 }
 .game-card[data-game="czn"] .game-top::before { animation-delay: 0s; }
 .game-card[data-game="ww"]  .game-top::before { animation-delay: 1.6s; }
