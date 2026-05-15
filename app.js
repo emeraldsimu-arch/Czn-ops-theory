@@ -1384,7 +1384,7 @@ setTimeout(initDebugLongPress, 500);
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js')
+  navigator.serviceWorker.register('/czn-ops-theory/sw.js')
       .then(reg => console.log('NEXUS SW registered:', reg.scope))
       .catch(err => console.log('SW registration failed:', err));
   });
