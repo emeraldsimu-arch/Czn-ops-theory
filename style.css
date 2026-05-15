@@ -227,6 +227,11 @@ body::after {
   color: var(--amber);
   border-bottom-color: var(--amber);
   text-shadow: 0 0 10px rgba(255,160,40,0.6);
+  animation: breatheNavTab 4s ease-in-out infinite;
+}
+@keyframes breatheNavTab {
+  0%,100% { text-shadow: 0 0 6px  rgba(255,160,40,0.4); }
+  50%      { text-shadow: 0 0 16px rgba(255,160,40,1), 0 0 30px rgba(255,160,40,0.3); }
 }
 .dispatch-badge {
   display: inline-block; font-family: 'JetBrains Mono', monospace;
@@ -290,7 +295,7 @@ body::after {
 }
 .dispatch-pips { display: flex; gap: 4px; align-items: center; }
 .pip { width: 6px; height: 6px; border-radius: 50%; background: var(--border2); transition: background .3s; flex-shrink: 0; }
-.pip.earned { background: var(--czn); box-shadow: 0 0 4px rgba(232,79,170,0.6); }
+.pip.earned { background: var(--czn); animation: breatheCZN 4s ease-in-out infinite; }
 .dispatch-count { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-bright); white-space: nowrap; min-width: 40px; text-align: right; }
 
 /* ── URGENCY ── */
@@ -321,6 +326,18 @@ body::after {
   content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 2px;
   background: var(--danger);
   animation: breatheRed 2.5s ease-in-out infinite;
+}
+.urg-card {
+  animation: breatheUrgBorder 2.5s ease-in-out infinite;
+}
+@keyframes breatheUrgBorder {
+  0%,100% { border-color: rgba(255,82,82,0.15); }
+  50%      { border-color: rgba(255,82,82,0.45); }
+}
+.urg-card.warn { animation: breatheWarnBorder 3s ease-in-out infinite; }
+@keyframes breatheWarnBorder {
+  0%,100% { border-color: rgba(255,160,40,0.15); }
+  50%      { border-color: rgba(255,160,40,0.45); }
 }
 .urg-card.warn {
   background: rgba(255,160,40,0.04);
@@ -371,25 +388,58 @@ body::after {
 .game-card[data-game="hsr"]::before { animation: breatheHSR 5s ease-in-out infinite; animation-delay: 3.2s; }
 .game-card[data-game="zzz"]::before { animation: breatheZZZ 5s ease-in-out infinite; animation-delay: 4.4s; }
 
-/* diagonal corner cut — clip-path on card so glow line isn't masked */
-.game-card {
-  clip-path: polygon(0 0, calc(100% - 22px) 0, 100% 22px, 100% 100%, 0 100%);
+/* diagonal corner cut — SVG border-image approach avoids clip-path clipping children */
+/* We fake the cut by placing a small square in the top-right corner that matches --bg */
+/* The glow line is a separate ::after on the card itself, not game-top */
+.game-card::after {
+  content: ''; position: absolute; top: 0; right: 0; z-index: 10; pointer-events: none;
+  width: 22px; height: 22px;
+  /* Triangle that matches the page background — creates the cut illusion */
+  background: linear-gradient(135deg, transparent 50%, #07080b 50%);
 }
 
-/* diagonal cut glow line — sits on game-top, now fully visible */
-.game-top::before {
-  content: ''; position: absolute; top: 0; right: 0; z-index: 4; pointer-events: none;
-  width: 32px; height: 2px;
-  background: linear-gradient(270deg, transparent 0%, var(--accent) 100%);
-  transform: rotate(45deg);
-  transform-origin: 100% 0;
-  animation: breatheGlow 5s ease-in-out infinite;
-  box-shadow: 0 0 6px var(--accent);
+/* diagonal glow line — on .game-card itself, above the masking triangle */
+/* Uses outline technique: a thin glowing line along the cut edge */
+.game-card[data-game="czn"] .g-cut-glow,
+.game-card[data-game="ww"]  .g-cut-glow,
+.game-card[data-game="hsr"] .g-cut-glow,
+.game-card[data-game="zzz"] .g-cut-glow { display: block; }
+
+/* Inject glow via game-top overflow:visible + high z-index pseudo on game-grid wrapper */
+/* Actual solution: use an inset box-shadow on the card top-right corner area */
+/* The cleanest no-clip approach: gradient border on top edge fading to accent at right */
+.game-card {
+  border-top: 1px solid rgba(255,255,255,0.06);
 }
-.game-card[data-game="czn"] .game-top::before { animation-delay: 0s; }
-.game-card[data-game="ww"]  .game-top::before { animation-delay: 1.6s; }
-.game-card[data-game="hsr"] .game-top::before { animation-delay: 3.2s; }
-.game-card[data-game="zzz"] .game-top::before { animation-delay: 4.4s; }
+.game-card[data-game="czn"] { border-top-color: rgba(232,79,170,0.5); }
+.game-card[data-game="ww"]  { border-top-color: rgba(45,232,160,0.4); }
+.game-card[data-game="hsr"] { border-top-color: rgba(157,127,245,0.4); }
+.game-card[data-game="zzz"] { border-top-color: rgba(74,184,240,0.4); }
+
+.game-card[data-game="czn"] { animation: breatheCZN-border 5s ease-in-out infinite; animation-delay: 0s; }
+.game-card[data-game="ww"]  { animation: breatheWW-border  5s ease-in-out infinite; animation-delay: 1.6s; }
+.game-card[data-game="hsr"] { animation: breatheHSR-border 5s ease-in-out infinite; animation-delay: 3.2s; }
+.game-card[data-game="zzz"] { animation: breatheZZZ-border 5s ease-in-out infinite; animation-delay: 4.4s; }
+
+@keyframes breatheCZN-border {
+  0%,100% { border-top-color: rgba(232,79,170,0.35); box-shadow: inset 0 1px 0 rgba(232,79,170,0.2); }
+  50%      { border-top-color: rgba(232,79,170,0.9);  box-shadow: inset 0 1px 0 rgba(232,79,170,0.5), 0 -2px 12px rgba(232,79,170,0.3); }
+}
+@keyframes breatheWW-border {
+  0%,100% { border-top-color: rgba(45,232,160,0.3);  box-shadow: inset 0 1px 0 rgba(45,232,160,0.15); }
+  50%      { border-top-color: rgba(45,232,160,0.85); box-shadow: inset 0 1px 0 rgba(45,232,160,0.45), 0 -2px 12px rgba(45,232,160,0.25); }
+}
+@keyframes breatheHSR-border {
+  0%,100% { border-top-color: rgba(157,127,245,0.3); box-shadow: inset 0 1px 0 rgba(157,127,245,0.15); }
+  50%      { border-top-color: rgba(157,127,245,0.85);box-shadow: inset 0 1px 0 rgba(157,127,245,0.45), 0 -2px 12px rgba(157,127,245,0.25); }
+}
+@keyframes breatheZZZ-border {
+  0%,100% { border-top-color: rgba(74,184,240,0.3);  box-shadow: inset 0 1px 0 rgba(74,184,240,0.15); }
+  50%      { border-top-color: rgba(74,184,240,0.85); box-shadow: inset 0 1px 0 rgba(74,184,240,0.45), 0 -2px 12px rgba(74,184,240,0.25); }
+}
+
+/* game-top overflow must be visible so glow line isn't cropped */
+.game-top { overflow: visible; }
 
 /* per-game background gradient tint */
 .game-card[data-game="czn"] { background: linear-gradient(135deg, rgba(232,79,170,0.06) 0%, rgba(12,13,18,0.95) 40%); }
@@ -420,6 +470,14 @@ body::after {
 .gtop-row { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 6px; }
 .g-pri { font-family: 'Orbitron', monospace; font-size: 7px; letter-spacing: 2px; color: var(--accent); text-transform: uppercase; margin-bottom: 2px; opacity: 0.7; }
 .g-name { font-family: 'Orbitron', monospace; font-weight: 700; font-size: 11px; color: var(--text-bright); letter-spacing: .5px; line-height: 1.2; }
+.game-card[data-game="czn"] .g-name { animation: breatheCZN-text 5s ease-in-out infinite; animation-delay: 0s; }
+.game-card[data-game="ww"]  .g-name { animation: breatheWW-text  5s ease-in-out infinite; animation-delay: 1.6s; }
+.game-card[data-game="hsr"] .g-name { animation: breatheHSR-text 5s ease-in-out infinite; animation-delay: 3.2s; }
+.game-card[data-game="zzz"] .g-name { animation: breatheZZZ-text 5s ease-in-out infinite; animation-delay: 4.4s; }
+@keyframes breatheCZN-text { 0%,100%{text-shadow:none;} 50%{text-shadow:0 0 10px rgba(232,79,170,0.6);} }
+@keyframes breatheWW-text  { 0%,100%{text-shadow:none;} 50%{text-shadow:0 0 10px rgba(45,232,160,0.5);} }
+@keyframes breatheHSR-text { 0%,100%{text-shadow:none;} 50%{text-shadow:0 0 10px rgba(157,127,245,0.5);} }
+@keyframes breatheZZZ-text { 0%,100%{text-shadow:none;} 50%{text-shadow:0 0 10px rgba(74,184,240,0.5);} }
 .g-patch { font-family: 'JetBrains Mono', monospace; font-size: 8px; color: var(--text-dim); margin-top: 2px; }
 .g-dl { font-family: 'JetBrains Mono', monospace; font-size: 8px; margin-top: 1px; }
 .g-dl.soon { color: var(--warn); } .g-dl.ok { color: var(--text-dim); }
