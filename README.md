@@ -1,74 +1,119 @@
-# NEXUS — Game Mission Tracker v5.3
+# NEXUS — Game Mission Tracker
 
-Personal mission tracker for **Chaos Zero Nightmare**, **Wuthering Waves**, **Honkai: Star Rail**, and **Seven Deadly Sins: Origin**. Built as a Progressive Web App — install to home screen for a native app experience.
+A personal operations dashboard and mission tracker for four priority gacha games. Built as a Progressive Web App — install to your home screen for a full-screen native app experience.
+
+**Live:** `https://emeraldsimu-arch.github.io/czn-ops-theory/`
+**Version:** v5.6
+**Last updated:** May 2026
+
+---
+
+## What It Does
+
+NEXUS tracks everything across four games in one place:
+
+- **Daily tasks** — reset at each game's actual server reset time, not midnight
+- **Weekly tasks** — reset on Monday per game schedule
+- **Endgame cycle clears** — tracked against real cycle end dates, not weekly resets
+- **Currency & pull planning** — balance input, pull count, pity tracker per game
+- **Achievement system** — four tiers (SIGNAL → OPERATIVE → VANGUARD → PHANTOM) with weekly Dispatches
+- **Session planner** — daily calendar view showing what to prioritize, time budget, and what can wait
+- **Notion sync** — lifetime stats, achievement unlocks, and weekly sessions archived automatically
+
+---
+
+## Games Tracked
+
+| Priority | Game | Reset |
+|---|---|---|
+| P1 | Chaos Zero Nightmare (CZN) | Sunday 18:00 UTC |
+| P2 | Wuthering Waves (WW) | Monday 20:00 UTC |
+| P3 | Honkai: Star Rail (HSR) | Monday 10:00 UTC |
+| P4 | Zenless Zone Zero (ZZZ) | Monday 10:00 UTC |
 
 ---
 
 ## Stack
 
-- **Frontend:** Vanilla HTML/CSS/JS — no build step, no dependencies
-- **Persistence:** localStorage (weekly state) + Notion (lifetime stats, achievements, session history)
-- **Hosting:** Netlify (password-protected, HTTPS)
-- **PWA:** Service worker with stale-while-revalidate caching
+| Layer | Service |
+|---|---|
+| Hosting | GitHub Pages |
+| Database | Notion (via Anthropic MCP) |
+| PWA | Chrome Android / iOS Safari |
+| Fonts | Google Fonts — Orbitron, Syne, JetBrains Mono |
 
 ---
 
 ## File Structure
 
 ```
-nexus/
-├── index.html          — app shell, layout, tabs
-├── style.css           — all design, CSS variables, animations
-├── app.js              — all application logic, state management, Notion sync
-├── sw.js               — service worker (PWA + offline)
+czn-ops-theory/
+├── index.html          — app shell, PIN gate, tab structure
+├── style.css           — design system, all CSS variables
+├── app.js              — all logic, state management, Notion sync
+├── sw.js               — service worker (offline support, cache busting)
 ├── manifest.json       — PWA install config
-├── data/
-│   ├── config.js       — ⭐ UPDATE THIS ON PATCH DAY
-│   ├── games.js        — task lists, endgame modes, calendar plan
-│   └── achievements.js — all achievement definitions (SIGNAL/OPERATIVE/VANGUARD/PHANTOM)
-└── assets/
-    ├── icon-192.png    — PWA icon (192×192)
-    └── icon-512.png    — PWA icon (512×512)
+├── .nojekyll           — disables Jekyll processing on GitHub Pages
+└── data/
+    ├── config.js       — patch dates, cycle dates, events (update on patch day)
+    ├── games.js        — task lists, endgame modes, weekly calendar plan
+    └── achievements.js — all achievement and dispatch definitions
 ```
 
----
-
-## Updating Patch Data
-
-**On patch day, only `data/config.js` needs to change.** Open the file, find the relevant section, update the dates. Nothing else needs to touch.
-
-1. Update `lastVerified` date
-2. Update the relevant entry in `patches[]` — change `version` and `ends`
-3. Update relevant entries in `cycles{}` — change `ends` dates for modes that reset
-4. Add or remove entries in `events[]` as needed
-5. Save, commit, Netlify auto-deploys
+**Patch day rule:** Only `data/config.js` needs updating when a new patch drops.
 
 ---
 
-## NEXUS Achievement Tiers
+## Install as PWA
 
-| Tier | Color | Description |
-|---|---|---|
-| SIGNAL | Blue | Early milestones — first week |
-| OPERATIVE | Green | Consistent play — weeks of effort |
-| VANGUARD | Purple | Sustained excellence — months |
-| PHANTOM | Gold | Rare, long-term, earned |
+**Android (Chrome):**
+1. Open the live URL in Chrome
+2. Tap the three-dot menu
+3. Tap "Add to Home screen"
+4. Tap Add
 
-Weekly **Dispatches** reset every Monday and feed into permanent achievement progress.
+**iOS (Safari):**
+1. Open the live URL in Safari
+2. Tap the Share button
+3. Tap "Add to Home Screen"
+4. Tap Add
 
----
-
-## Notion Databases
-
-Three databases in the NEXUS Operations Hub:
-
-- `NEXUS_RECORD` — one row, lifetime stats, always updating
-- `NEXUS_ACHIEVEMENTS` — one row per permanent achievement unlock
-- `NEXUS_SESSIONS` — one row per week, complete play history
+Once installed, the app opens full-screen with no browser chrome — just like a native app.
 
 ---
 
-## Data Sources
+## Development
 
-Game data verified against: **Game8 · Prydwen · GameWith · Official Wikis**  
-Last full verification: **May 12, 2026**
+### Branch workflow
+All changes go through a branch — never commit directly to `main` during a multi-file update.
+
+```
+1. Create branch (e.g. v5-7)
+2. Commit all changed files to the branch
+3. Create pull request → review diff
+4. Merge to main → GitHub Pages deploys automatically
+```
+
+One merge = one deploy. Keep deploys to one per session.
+
+### Important — file naming
+GitHub Pages runs on Linux (case-sensitive). All filenames must be **lowercase** when committing. `app.js` not `App.js`. Uppercase filenames cause 404s.
+
+### Patch updates
+When game data is outdated:
+1. Verify new dates on Game8 and Icy Veins (two sources minimum)
+2. Update `data/config.js` only — change `lastVerified`, patch ends, cycle ends, events
+3. Create branch → commit → merge → one deploy
+
+---
+
+## Security
+
+- PIN gate authentication on app load
+- No passwords, financial data, or personal information in the codebase
+- Notion database IDs are present in config but are useless without a Notion integration token, which is never stored in the repo
+- All user data lives in localStorage (device) and Notion (server) — nothing sensitive in the source code
+
+---
+
+*Personal project — not accepting contributions.*
