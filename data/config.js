@@ -1,8 +1,8 @@
 // ═══════════════════════════════════════════════════════════
 // NEXUS v5.6 — CONFIG
 // ── THIS IS THE ONLY FILE THAT NEEDS UPDATING ON PATCH DAY ──
-// Last verified: 2026-05-14
-// Next review: 2026-06-01 (earliest patch end — HSR 4.2)
+// Last verified: 2026-05-15
+// Next review: 2026-05-22 (ZZZ Deadly Assault resets)
 // Changes from v5.5:
 //   - resetTimes block added — per-game daily/weekly UTC reset hours
 //   - All four games on America server (UTC-5): daily reset 10:00 UTC
@@ -12,7 +12,7 @@
 
 const CONFIG = {
   version: '5.6',
-  lastVerified: '2026-05-14',
+  lastVerified: '2026-05-15',
 
   // ── Notion backend IDs ──
   notion: {
@@ -59,8 +59,8 @@ const CONFIG = {
     czn_boh:    { ends: '2026-07-08', type: 'patch',  label: 'Basin of Hyperspace' },
     czn_fso:    { ends: '2026-07-08', type: 'patch',  label: 'Full-Scale Offensive' },
     czn_sortie: { ends: 'weekly',     type: 'weekly', label: 'Sortie Mode run' },
-    // ZZZ
-    zzz_shiyu:  { ends: '2026-05-27', type: 'date',   label: 'Shiyu Defense / Critical Node' },
+    // ZZZ — Critical Node resets biweekly; verified 2026-05-15
+    zzz_shiyu:  { ends: '2026-05-15', type: 'date',   label: 'Shiyu Defense / Critical Node' },
     zzz_deadly: { ends: '2026-05-22', type: 'date',   label: 'Deadly Assault' },
     zzz_hollow: { ends: 'weekly',     type: 'weekly', label: 'Hollow Zero / Operation Matrix' },
   },
