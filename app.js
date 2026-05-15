@@ -20,6 +20,7 @@ const OUTBOXK = 'nexus_v53_ob';
 const PREVWK  = 'nexus_v53_pw';
 const CURK    = 'nexus_v53_cur';
 const PITYK   = 'nexus_v53_pity';
+const GUARK   = 'nexus_v53_guar'; // on-guarantee toggle per game
 const FDK     = 'nexus_v53_fd';  // freshness dismiss key
 
 // ── WEEK KEY ──
@@ -115,6 +116,8 @@ const getCur  = () => { try { return JSON.parse(localStorage.getItem(CURK) || '{
 const saveCur = o => { try { localStorage.setItem(CURK, JSON.stringify(o)); } catch {} };
 const getPity  = () => { try { return JSON.parse(localStorage.getItem(PITYK) || '{}'); } catch { return {}; } };
 const savePity = o => { try { localStorage.setItem(PITYK, JSON.stringify(o)); } catch {} };
+const getGuar  = () => { try { return JSON.parse(localStorage.getItem(GUARK) || '{}'); } catch { return {}; } };
+const saveGuar = o => { try { localStorage.setItem(GUARK, JSON.stringify(o)); } catch {} };
 
 // setv() — write a task state value
 // type 'daily' uses dk(gid), type 'weekly' uses wk(gid)
@@ -769,9 +772,46 @@ function initDebugLongPress() {
 }
 
 // ── CURRENCY DASHBOARD ──
+
+// calcProjection() — pull guarantee projection
+// Returns: { pullsToGuarantee, currencyNeeded, weeksToGoal, alreadyEnough }
+// onGuarantee: true = lost last 50/50, so next 5-star is guaranteed (1x hardPity needed)
+//              false = won last 50/50 or unknown, so may need 2x hardPity worst case
+// For games without 50/50 (czn partner banner), always 1x hardPity from current pity.
+function calcProjection(gid, balance, pityVal, onGuarantee) {
+  const pull   = CONFIG.pulls[gid];
+  const weekly = CONFIG.weeklyYields[gid];
+  if (!pull) return null;
+
+  const pullsOwned = Math.floor(balance / pull.perPull);
+
+  // Pulls needed to hit next guarantee from current pity
+  // If on guarantee: just need to reach hardPity once from current pity
+  // If not on guarantee with 50/50: worst case is lose this 50/50 (hardPity - pity pulls)
+  //   then full second hardPity for the guarantee
+  let pullsToGuarantee;
+  if (!pull.has50_50 || onGuarantee) {
+    // Straight shot to hard pity from current pity
+    pullsToGuarantee = pull.hardPity - pityVal;
+  } else {
+    // May lose 50/50: (pulls to hit hardPity) + full hardPity for guarantee
+    pullsToGuarantee = (pull.hardPity - pityVal) + pull.hardPity;
+  }
+  pullsToGuarantee = Math.max(1, pullsToGuarantee);
+
+  const pullsNeeded    = Math.max(0, pullsToGuarantee - pullsOwned);
+  const currencyNeeded = pullsNeeded * pull.perPull;
+  const weeklyIncome   = (weekly.daily || 0) + (weekly.weekly || 0);
+  const weeksToGoal    = weeklyIncome > 0 ? Math.ceil(currencyNeeded / weeklyIncome) : null;
+  const alreadyEnough  = pullsNeeded === 0;
+
+  return { pullsToGuarantee, pullsNeeded, currencyNeeded, weeksToGoal, alreadyEnough };
+}
+
 function buildCurrencySection() {
   const cur  = getCur();
   const pity = getPity();
+  const guar = getGuar();
   const s    = wsFull();
   let html = `<div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-dim);margin-bottom:14px;padding:10px 14px;background:var(--panel);border:1px solid var(--border);border-radius:6px;line-height:1.6">
     Enter your current in-game balance for each tracker. Tap the number to edit.<br>
@@ -781,12 +821,45 @@ function buildCurrencySection() {
   GAMES.forEach(g => {
     const pull    = CONFIG.pulls[g.id];
     if (!pull) return;
-    const balance = cur[g.id] || 0;
-    const pulls   = Math.floor(balance / pull.perPull);
-    const pityVal = pity[g.id] || 0;
-    const barPct  = Math.min(100, Math.round(balance / (pull.hardPity * pull.perPull) * 100));
-    const weekly  = CONFIG.weeklyYields[g.id];
+    const balance    = cur[g.id] || 0;
+    const pulls      = Math.floor(balance / pull.perPull);
+    const pityVal    = pity[g.id] || 0;
+    const onGuar     = !!(guar[g.id]);
+    const barPct     = Math.min(100, Math.round(balance / (pull.hardPity * pull.perPull) * 100));
+    const weekly     = CONFIG.weeklyYields[g.id];
     const earnedSoFar = calcEarned(g.id, s);
+    const proj       = calcProjection(g.id, balance, pityVal, onGuar);
+
+    // Projection row HTML
+    let projHTML = '';
+    if (proj) {
+      if (proj.alreadyEnough) {
+        projHTML = `<div class="cc-proj cc-proj-ok">
+          <span class="cc-proj-label">Guarantee</span>
+          <span class="cc-proj-val" style="color:var(--ok)">✓ Enough to guarantee</span>
+        </div>`;
+      } else {
+        const weeksStr = proj.weeksToGoal === null ? '—'
+          : proj.weeksToGoal === 1 ? '~1 week'
+          : `~${proj.weeksToGoal} weeks`;
+        projHTML = `<div class="cc-proj">
+          <span class="cc-proj-label">To guarantee</span>
+          <span class="cc-proj-cost">${proj.currencyNeeded.toLocaleString()} ${pull.currencyShort}</span>
+          <span class="cc-proj-weeks">${weeksStr}</span>
+        </div>`;
+      }
+    }
+
+    // 50/50 state toggle — only for games with 50/50
+    const guarToggle = pull.has50_50 ? `
+      <div class="cc-guar-row">
+        <label class="cc-guar-label" for="guar-${g.id}">
+          <input type="checkbox" id="guar-${g.id}" ${onGuar ? 'checked' : ''}
+            onchange="updateGuar('${g.id}', this.checked)"/>
+          On guarantee <span style="color:var(--text-dim)">(lost last 50/50)</span>
+        </label>
+      </div>` : '';
+
     html += `<div class="currency-card" style="--accent:var(${g.accent})">
       <div class="cc-header">
         <span class="cc-game">${g.short}</span>
@@ -811,6 +884,8 @@ function buildCurrencySection() {
         <span style="flex:1"></span>
         <span class="cc-pity-label">${pull.softPity?'Soft @'+pull.softPity:'No soft pity'}</span>
       </div>
+      ${guarToggle}
+      ${projHTML}
       <div class="cc-earned">
         <span class="cc-earned-label">Earned from tasks this week</span>
         <span class="cc-earned-val">+${earnedSoFar} ${pull.currencyShort}</span>
@@ -854,6 +929,11 @@ function updateCurrency(gid, val) {
 
 function updatePity(gid, val) {
   const p = getPity(); p[gid] = Math.max(0, parseInt(val) || 0); savePity(p);
+  buildCurrencySection();
+}
+function updateGuar(gid, val) {
+  const g = getGuar(); g[gid] = !!val; saveGuar(g);
+  buildCurrencySection();
 }
 function updateCurrencyEarned(gid) {
   const s = wsFull(); const g = GAMES.find(x => x.id === gid);
