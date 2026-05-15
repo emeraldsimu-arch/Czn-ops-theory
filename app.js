@@ -20,6 +20,7 @@ const OUTBOXK = 'nexus_v53_ob';
 const PREVWK  = 'nexus_v53_pw';
 const CURK    = 'nexus_v53_cur';
 const PITYK   = 'nexus_v53_pity';
+const FDK     = 'nexus_v53_fd';  // freshness dismiss key
 
 // ── WEEK KEY ──
 // Accepts optional gameId to handle CZN's Sunday 18:00 UTC reset.
@@ -332,10 +333,62 @@ function checkCycleFreshness() {
   return { stale: hasExpired, warnings, soonest };
 }
 
+// ── FRESHNESS DISMISS ──
+// dismissFreshBanner() — called when operator taps ✕ on amber banner.
+// Calculates dismissedUntil = soonest expiring cycle date minus 1 day.
+// Banner re-appears automatically on that date (day-before re-alert).
+// Red (stale) banners are never dismissable — this only applies to amber.
+function dismissFreshBanner() {
+  const today = new Date(); today.setHours(0,0,0,0);
+
+  // Find soonest expiring date-type cycle within warning window
+  let soonestDate = null;
+  Object.values(CONFIG.cycles).forEach(cycle => {
+    if (cycle.type !== 'date') return;
+    const end = new Date(cycle.ends); end.setHours(0,0,0,0);
+    const days = Math.ceil((end - today) / (1000*60*60*24));
+    if (days >= 0 && days <= 7) {
+      if (!soonestDate || end < soonestDate) soonestDate = end;
+    }
+  });
+  // Also check patch windows
+  CONFIG.patches.forEach(p => {
+    const end = new Date(p.ends); end.setHours(0,0,0,0);
+    const diff = Math.floor((end - today) / (1000*60*60*24));
+    if (diff >= 0 && diff <= 7) {
+      if (!soonestDate || end < soonestDate) soonestDate = end;
+    }
+  });
+
+  // dismissedUntil = day before soonest expiry (re-alert fires that day)
+  // If nothing found, dismiss for 1 day as fallback
+  let dismissedUntil;
+  if (soonestDate) {
+    const reAlert = new Date(soonestDate);
+    reAlert.setUTCDate(reAlert.getUTCDate() - 1);
+    dismissedUntil = reAlert.toISOString().slice(0, 10);
+  } else {
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    dismissedUntil = tomorrow.toISOString().slice(0, 10);
+  }
+
+  try { localStorage.setItem(FDK, JSON.stringify({ dismissedUntil })); } catch {}
+  document.getElementById('freshBanner').className = 'fresh-banner';
+  const fDot = document.getElementById('fstatDot');
+  const fMsg = document.getElementById('fstatMsg');
+  if (fDot) fDot.style.background = 'var(--ok)';
+  if (fMsg) fMsg.textContent = 'Data current · ' + CONFIG.lastVerified;
+}
+
 // ── FRESHNESS CHECK ──
-// v5.7: now incorporates cycle-level freshness via checkCycleFreshness().
-// Priority: patch expired (red) > cycle date expired (red) >
-//           patch ending soon (amber) > cycle ending soon (amber) > all clear (green)
+// v5.7: incorporates cycle-level freshness via checkCycleFreshness().
+// v5.7: amber banners are dismissable — dismissed state stored in FDK.
+//       Re-alert fires automatically the day before the soonest expiry.
+//       Red (stale/expired) banners always show — never suppressable.
+// Priority: patch expired (red) > cycle expired (red) >
+//           patch ending soon (amber, dismissable) >
+//           cycle ending soon (amber, dismissable) > all clear (green)
 function checkFreshness() {
   const today = new Date(); today.setHours(0,0,0,0);
   let stale = false, warn = false, msg = '';
@@ -352,43 +405,56 @@ function checkFreshness() {
   // Check cycle-level freshness
   const cf = checkCycleFreshness();
   if (!stale && cf.stale) {
-    // A cycle date has expired — escalate to stale
     stale = true;
     msg = cf.warnings.find(w => w.includes('expired')) || 'Cycle data may be outdated';
   }
 
-  if (!stale && soonestPatch) {
-    warn = true;
-    msg = `${soonestPatch.game.toUpperCase()} patch ends in ${soonestDiff}d`;
-  }
-
-  // Cycle expiry warning (amber) — only if no higher-priority warning already set
-  if (!stale && !warn && cf.soonest) {
-    warn = true;
-    msg = cf.soonest.label;
-  }
-
-  // If we have multiple cycle warnings, append a count so the operator knows
-  // there's more than one thing to check
-  if (!stale && warn && cf.warnings.length > 1) {
-    msg += ` (+${cf.warnings.length - 1} more)`;
-  }
+  if (!stale && soonestPatch) { warn = true; msg = `${soonestPatch.game.toUpperCase()} patch ends in ${soonestDiff}d`; }
+  if (!stale && !warn && cf.soonest) { warn = true; msg = cf.soonest.label; }
+  if (!stale && warn && cf.warnings.length > 1) msg += ` (+${cf.warnings.length - 1} more)`;
 
   const banner = document.getElementById('freshBanner');
   const fDot   = document.getElementById('fstatDot');
   const fMsg   = document.getElementById('fstatMsg');
+  const dismissBtn = document.getElementById('freshDismiss');
+
   if (stale) {
+    // Red — always show, never dismissable
     banner.className = 'fresh-banner show stale';
     document.getElementById('freshMsg').textContent = msg + ' — request a data update.';
+    if (dismissBtn) dismissBtn.style.display = 'none';
     if (fDot) fDot.style.background = 'var(--danger)';
     if (fMsg) fMsg.textContent = 'Data stale';
   } else if (warn) {
-    banner.className = 'fresh-banner show';
-    document.getElementById('freshMsg').textContent = msg + ' — verify dates before next session.';
-    if (fDot) fDot.style.background = 'var(--warn)';
-    if (fMsg) fMsg.textContent = 'Check recommended';
+    // Amber — check dismiss state before showing
+    let dismissed = false;
+    try {
+      const fd = JSON.parse(localStorage.getItem(FDK) || '{}');
+      if (fd.dismissedUntil) {
+        const until = new Date(fd.dismissedUntil); until.setHours(0,0,0,0);
+        dismissed = today < until;
+      }
+    } catch {}
+
+    if (dismissed) {
+      // Still within dismiss window — stay hidden
+      banner.className = 'fresh-banner';
+      if (fDot) fDot.style.background = 'var(--ok)';
+      if (fMsg) fMsg.textContent = 'Data current · ' + CONFIG.lastVerified;
+    } else {
+      // Dismiss window expired or never set — show banner
+      // Day-before re-alert: no dismiss button (must act now)
+      const isDayBefore = cf.soonest?.days === 1 || soonestDiff === 1;
+      banner.className = 'fresh-banner show';
+      document.getElementById('freshMsg').textContent = msg + (isDayBefore ? ' — update needed before next reset.' : ' — verify dates before next session.');
+      if (dismissBtn) dismissBtn.style.display = isDayBefore ? 'none' : 'flex';
+      if (fDot) fDot.style.background = 'var(--warn)';
+      if (fMsg) fMsg.textContent = isDayBefore ? 'Update needed' : 'Check recommended';
+    }
   } else {
+    // All clear
     banner.className = 'fresh-banner';
+    if (dismissBtn) dismissBtn.style.display = 'none';
     if (fDot) fDot.style.background = 'var(--ok)';
     if (fMsg) fMsg.textContent = 'Data current · ' + CONFIG.lastVerified;
   }

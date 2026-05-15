@@ -202,8 +202,11 @@ pinInit();
     </div>
   </header>
 
+  <!-- v5.7: dismiss button added — amber banners are dismissable, red are not -->
   <div class="fresh-banner" id="freshBanner">
-    <span>⚠</span><span id="freshMsg">Patch data may be outdated.</span>
+    <span>⚠</span>
+    <span id="freshMsg">Patch data may be outdated.</span>
+    <button id="freshDismiss" class="fresh-dismiss" onclick="dismissFreshBanner()" style="display:none" title="Dismiss until day before reset">✕</button>
   </div>
 
   <nav class="nav">
