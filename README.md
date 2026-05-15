@@ -96,8 +96,6 @@ All changes go through a branch — never commit directly to `main` during a mul
 
 One merge = one deploy. Keep deploys to one per session.
 
-### Important — file naming
-GitHub Pages runs on Linux (case-sensitive). All filenames must be **lowercase** when committing. `app.js` not `App.js`. Uppercase filenames cause 404s.
 
 ### Patch updates
 When game data is outdated:
