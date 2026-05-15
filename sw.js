@@ -5,7 +5,7 @@
 //   - PRECACHE and fetch handler scoped accordingly
 // ═══════════════════════════════════════════════════════════
 
-const CACHE_NAME = 'nexus-v56-static';
+const CACHE_NAME = 'nexus-v57-static';
 const BASE_PATH  = '/czn-ops-theory';
 
 const PRECACHE = [
