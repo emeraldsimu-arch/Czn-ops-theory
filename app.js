@@ -1,12 +1,21 @@
-// NEXUS v5.7 — APP.JS
+
+
+// NEXUS v5.8 — APP.JS
 // All application logic, state management, Notion sync
-// GitHub: Emereldsimu-arch/nexus
-// Changes from v5.6:
-//   - checkCycleFreshness() added — scans CONFIG.cycles for date-type entries
-//     expiring within 7 days and flags lastVerified staleness (>14 days)
-//   - checkFreshness() updated — now calls checkCycleFreshness() and merges
-//     cycle expiry warnings into the existing freshness banner system
-//   - Version bump to 5.7
+// GitHub: Emereldsimu-arch/czn-ops-theory
+// Changes from v5.7:
+//   - dk('czn') fix: CZN dailyUTC is now 18 (not null) — CZN daily tasks
+//     now reset every day at 18:00 UTC instead of weekly-only.
+//     The null bypass in dk() removed; CZN falls through to standard
+//     daily key logic like HSR/ZZZ.
+//   - Session Mode added: floating activate button + fullscreen overlay
+//     Reads buildSessionList() — urgency-ordered, time-sensitive items only
+//     Drives existing togT() and togCy() calls — no new state owners
+//     Live countdown timers update every 60s while overlay is open
+//     Per-game daily blocks expand inline to individual sub-tasks
+//     Completed items bloom then slide out (300ms bloom + 500ms fade)
+//     All-clear state: OBJECTIVES CLEAR treatment in neon bounty hunter aesthetic
+//   - Version bump to 5.8
 // ═══════════════════════════════════════════════════════════
 
 // ── STORAGE KEYS ──
@@ -20,28 +29,18 @@ const OUTBOXK = 'nexus_v53_ob';
 const PREVWK  = 'nexus_v53_pw';
 const CURK    = 'nexus_v53_cur';
 const PITYK   = 'nexus_v53_pity';
-const GUARK   = 'nexus_v53_guar'; // on-guarantee toggle per game
-const FDK     = 'nexus_v53_fd';  // freshness dismiss key
+const GUARK   = 'nexus_v53_guar';
+const FDK     = 'nexus_v53_fd';
 
 // ── WEEK KEY ──
-// Accepts optional gameId to handle CZN's Sunday 18:00 UTC reset.
-// For all other games, anchors to Monday 00:00 UTC.
-// For CZN, anchors to Sunday 18:00 UTC — if current UTC time is past
-// Sunday 18:00 this week, we're in CZN's current week; otherwise previous.
 function wk(gameId) {
   const now = new Date();
 
   if (gameId === 'czn') {
-    // CZN resets Sunday 18:00 UTC
-    // Find the most recent Sunday 18:00 UTC on or before now
     const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 18, 0, 0));
-    const dayOfWeek = d.getUTCDay(); // 0=Sun
-    // Roll back to Sunday
-    const daysToSunday = dayOfWeek === 0 ? 0 : 7 - dayOfWeek;
-    // Actually: go back to the most recent Sunday
+    const dayOfWeek = d.getUTCDay();
     const daysSinceSunday = dayOfWeek === 0 ? 0 : dayOfWeek;
     d.setUTCDate(d.getUTCDate() - daysSinceSunday);
-    // If we haven't reached 18:00 UTC yet on this Sunday, use previous Sunday
     const nowUtcSunday18 = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 18, 0, 0));
     nowUtcSunday18.setUTCDate(nowUtcSunday18.getUTCDate() - daysSinceSunday);
     if (now < nowUtcSunday18) {
@@ -50,7 +49,6 @@ function wk(gameId) {
     return 'WCZN' + d.toISOString().slice(0, 10);
   }
 
-  // Default: Monday-anchored week key (HSR, WW, ZZZ, general)
   const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
   const day = d.getUTCDay();
   d.setUTCDate(d.getUTCDate() + (day === 0 ? -6 : 1) - day);
@@ -58,22 +56,17 @@ function wk(gameId) {
 }
 
 // ── DAILY KEY ──
-// Returns a per-game day key that respects the game's actual daily reset time.
-// If current UTC time is before the game's dailyResetUTC hour, we are still
-// in the previous calendar day for that game's purposes.
-// CZN has no daily reset (dailyUTC: null) — uses wk('czn') instead.
-// Format: 'D2026-05-14-hsr'
+// v5.8: CZN bypass removed. CZN now has dailyUTC: 18 in CONFIG.resetTimes
+// so it falls through to standard daily key logic.
+// Format: 'D2026-05-14-czn', 'D2026-05-14-hsr', etc.
 function dk(gameId) {
   const rt = CONFIG.resetTimes[gameId];
-
-  // CZN has no daily reset — daily tasks use the weekly key
   if (!rt || rt.dailyUTC === null) return wk('czn');
 
   const now = new Date();
   const utcHour = now.getUTCHours();
   const utcDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
 
-  // If before reset hour, we're still on the previous game-day
   if (utcHour < rt.dailyUTC) {
     utcDate.setUTCDate(utcDate.getUTCDate() - 1);
   }
@@ -85,8 +78,6 @@ function dk(gameId) {
 const ld  = () => { try { return JSON.parse(localStorage.getItem(SK) || '{}'); } catch { return {}; } };
 const sv  = a  => { try { localStorage.setItem(SK, JSON.stringify(a)); } catch {} };
 
-// ws() — weekly state for a game (weeklies + cycle clears + collapse prefs)
-// Uses wk(gameId) so CZN gets Sunday-anchored key
 const ws  = (gameId) => {
   const a = ld();
   const w = wk(gameId);
@@ -94,15 +85,12 @@ const ws  = (gameId) => {
   return a[w];
 };
 
-// wsFull() — returns the full weekly state object for the current general week
-// Used by helpers that need to read across all games (gPct, totalDone, etc.)
 const wsFull = () => {
   const a = ld(); const w = wk();
   if (!a[w]) a[w] = {};
   return a[w];
 };
 
-// ds() — daily state for a game, keyed by dk(gameId)
 const ds = (gameId) => {
   const a = ld();
   const d = dk(gameId);
@@ -119,8 +107,6 @@ const savePity = o => { try { localStorage.setItem(PITYK, JSON.stringify(o)); } 
 const getGuar  = () => { try { return JSON.parse(localStorage.getItem(GUARK) || '{}'); } catch { return {}; } };
 const saveGuar = o => { try { localStorage.setItem(GUARK, JSON.stringify(o)); } catch {} };
 
-// setv() — write a task state value
-// type 'daily' uses dk(gid), type 'weekly' uses wk(gid)
 function setv(gid, type, idx, val) {
   const a = ld();
   const key = type === 'daily' ? dk(gid) : wk(gid);
@@ -131,11 +117,8 @@ function setv(gid, type, idx, val) {
   sv(a);
 }
 
-// getv() — read a task state value
-// type 'daily' reads from dk(gid), type 'weekly' reads from wk(gid)
 function getv(s, gid, type, idx) {
   if (type === 'daily') {
-    // s is not used for daily — always read live from dk() storage
     const a = ld();
     const key = dk(gid);
     return !!(a[key]?.[gid]?.['daily']?.[idx]);
@@ -183,10 +166,6 @@ function updateStreak() {
 function getStreak() { try { return JSON.parse(localStorage.getItem(STRK) || '{"count":0}').count; } catch { return 0; } }
 
 // ── COMPUTED HELPERS ──
-// These read across all games and task types.
-// Daily tasks read from dk() storage directly via getv().
-// Weekly tasks read from the passed state object (wsFull()).
-
 function totalDone(s) {
   let d = 0;
   GAMES.forEach(g => {
@@ -200,17 +179,12 @@ function allDaily(gid, s) {
 }
 function spiralFull(s) { return [0,1,2,3,4].every(i => getv(s, 'czn', 'weekly', i)); }
 
-// hsrEndgameDone — all 4 HSR endgame cycle clears
 function hsrEndgameDone() {
   return getCy('hsr_moc') && getCy('hsr_pf') && getCy('hsr_as') && getCy('hsr_aa');
 }
-
-// wwEndgameDone — all 4 WW endgame cycle clears (ww_tg added in v5.6)
 function wwEndgameDone() {
   return getCy('ww_toa') && getCy('ww_ww') && getCy('ww_em') && getCy('ww_tg');
 }
-
-// zzzEndgameDone — all 3 ZZZ endgame cycle clears
 function zzzEndgameDone() {
   return getCy('zzz_shiyu') && getCy('zzz_deadly') && getCy('zzz_hollow');
 }
@@ -289,16 +263,11 @@ function cycleResetLabel(cycleKey) {
 }
 
 // ── CYCLE FRESHNESS CHECK ──
-// Scans CONFIG.cycles for date-type entries expiring within 7 days.
-// Also checks if lastVerified is more than 14 days old.
-// Returns: { stale: bool, warnings: string[], soonest: {label, days} | null }
-// Owner: checkFreshness() only. Pure read — no side effects.
 function checkCycleFreshness() {
   const today = new Date(); today.setHours(0,0,0,0);
   const warnings = [];
   let soonest = null;
 
-  // Check lastVerified staleness
   if (CONFIG.lastVerified) {
     const verified = new Date(CONFIG.lastVerified); verified.setHours(0,0,0,0);
     const daysSince = Math.floor((today - verified) / (1000*60*60*24));
@@ -307,15 +276,12 @@ function checkCycleFreshness() {
     }
   }
 
-  // Scan all date-type cycles for upcoming expirations
   Object.entries(CONFIG.cycles).forEach(([key, cycle]) => {
     if (cycle.type !== 'date') return;
     const end = new Date(cycle.ends); end.setHours(0,0,0,0);
     const days = Math.ceil((end - today) / (1000*60*60*24));
 
-    // Already expired — flag as stale
     if (days < 0) {
-      // Find which game this cycle belongs to for a better label
       const game = GAMES.find(g => g.endgameModes.some(m => m.cycleKey === key));
       const gameLabel = game ? game.short : key.split('_')[0].toUpperCase();
       warnings.push(`${gameLabel} ${cycle.label} date expired — update config`);
@@ -337,15 +303,10 @@ function checkCycleFreshness() {
 }
 
 // ── FRESHNESS DISMISS ──
-// dismissFreshBanner() — called when operator taps ✕ on amber banner.
-// Calculates dismissedUntil = soonest expiring cycle date minus 1 day.
-// Banner re-appears automatically on that date (day-before re-alert).
-// Red (stale) banners are never dismissable — this only applies to amber.
 function dismissFreshBanner() {
   const today = new Date(); today.setHours(0,0,0,0);
-
-  // Find soonest expiring date-type cycle within warning window
   let soonestDate = null;
+
   Object.values(CONFIG.cycles).forEach(cycle => {
     if (cycle.type !== 'date') return;
     const end = new Date(cycle.ends); end.setHours(0,0,0,0);
@@ -354,7 +315,6 @@ function dismissFreshBanner() {
       if (!soonestDate || end < soonestDate) soonestDate = end;
     }
   });
-  // Also check patch windows
   CONFIG.patches.forEach(p => {
     const end = new Date(p.ends); end.setHours(0,0,0,0);
     const diff = Math.floor((end - today) / (1000*60*60*24));
@@ -363,8 +323,6 @@ function dismissFreshBanner() {
     }
   });
 
-  // dismissedUntil = day before soonest expiry (re-alert fires that day)
-  // If nothing found, dismiss for 1 day as fallback
   let dismissedUntil;
   if (soonestDate) {
     const reAlert = new Date(soonestDate);
@@ -385,19 +343,11 @@ function dismissFreshBanner() {
 }
 
 // ── FRESHNESS CHECK ──
-// v5.7: incorporates cycle-level freshness via checkCycleFreshness().
-// v5.7: amber banners are dismissable — dismissed state stored in FDK.
-//       Re-alert fires automatically the day before the soonest expiry.
-//       Red (stale/expired) banners always show — never suppressable.
-// Priority: patch expired (red) > cycle expired (red) >
-//           patch ending soon (amber, dismissable) >
-//           cycle ending soon (amber, dismissable) > all clear (green)
 function checkFreshness() {
   const today = new Date(); today.setHours(0,0,0,0);
   let stale = false, warn = false, msg = '';
   let soonestDiff = Infinity; let soonestPatch = null;
 
-  // Check patch windows
   CONFIG.patches.forEach(p => {
     const end  = new Date(p.ends); end.setHours(0,0,0,0);
     const diff = Math.floor((end - today) / (1000*60*60*24));
@@ -405,7 +355,6 @@ function checkFreshness() {
     else if (diff <= 7 && diff < soonestDiff) { soonestDiff = diff; soonestPatch = p; }
   });
 
-  // Check cycle-level freshness
   const cf = checkCycleFreshness();
   if (!stale && cf.stale) {
     stale = true;
@@ -422,14 +371,12 @@ function checkFreshness() {
   const dismissBtn = document.getElementById('freshDismiss');
 
   if (stale) {
-    // Red — always show, never dismissable
     banner.className = 'fresh-banner show stale';
     document.getElementById('freshMsg').textContent = msg + ' — request a data update.';
     if (dismissBtn) dismissBtn.style.display = 'none';
     if (fDot) fDot.style.background = 'var(--danger)';
     if (fMsg) fMsg.textContent = 'Data stale';
   } else if (warn) {
-    // Amber — check dismiss state before showing
     let dismissed = false;
     try {
       const fd = JSON.parse(localStorage.getItem(FDK) || '{}');
@@ -440,13 +387,10 @@ function checkFreshness() {
     } catch {}
 
     if (dismissed) {
-      // Still within dismiss window — stay hidden
       banner.className = 'fresh-banner';
       if (fDot) fDot.style.background = 'var(--ok)';
       if (fMsg) fMsg.textContent = 'Data current · ' + CONFIG.lastVerified;
     } else {
-      // Dismiss window expired or never set — show banner
-      // Day-before re-alert: no dismiss button (must act now)
       const isDayBefore = cf.soonest?.days === 1 || soonestDiff === 1;
       banner.className = 'fresh-banner show';
       document.getElementById('freshMsg').textContent = msg + (isDayBefore ? ' — update needed before next reset.' : ' — verify dates before next session.');
@@ -455,7 +399,6 @@ function checkFreshness() {
       if (fMsg) fMsg.textContent = isDayBefore ? 'Update needed' : 'Check recommended';
     }
   } else {
-    // All clear
     banner.className = 'fresh-banner';
     if (dismissBtn) dismissBtn.style.display = 'none';
     if (fDot) fDot.style.background = 'var(--ok)';
@@ -526,15 +469,12 @@ function updateDispatchBar() {
 }
 
 // ── URGENCY BANNER ──
-// v5.6: items sorted by days remaining ascending — most urgent first.
-// Weekly cycles (null days) always sort to the bottom.
 function buildUrgency() {
   const today = new Date(); today.setHours(0,0,0,0);
   const lt    = getLT();
   const isFirstLoad = (lt.totalTasksCompleted || 0) === 0;
   const urgencyThreshold = isFirstLoad ? 14 : 999;
 
-  // Collect all uncleared, unlocked cycle modes across all games
   const allItems = [];
   GAMES.forEach(g => {
     g.endgameModes.forEach(m => {
@@ -546,7 +486,6 @@ function buildUrgency() {
     });
   });
 
-  // Sort: known day counts ascending, nulls (weekly) at the end
   allItems.sort((a, b) => {
     if (a.days === null && b.days === null) return 0;
     if (a.days === null) return 1;
@@ -573,7 +512,6 @@ function buildUrgency() {
 }
 
 // ── GAME CARDS ──
-// v5.5: Cycle clear rows render ABOVE weekly tasks for reduced friction
 function buildCard(g, s) {
   const a   = `var(${g.accent})`, d = `var(${g.dim})`;
   const all = ld(); const w = wk(g.id);
@@ -691,11 +629,13 @@ function togT(gid, type, idx, el, ev) {
   }
   updateGlobals(); buildUrgency(); buildTodayPanel(); checkAllAchievements(); updateLT();
   updateCurrencyEarned(gid);
+
+  // Refresh session mode list if open
+  if (document.getElementById('sessionOverlay')?.classList.contains('open')) {
+    refreshSessionList();
+  }
 }
 
-// togCy() — sole owner of lifetime cycle clear increments
-// Increments only when transitioning not-cleared → cleared.
-// Undo (cleared → not-cleared) does not decrement lifetime stats.
 function togCy(k, el) {
   const cyConf   = CONFIG.cycles[k];
   const isWeekly = cyConf?.type === 'weekly';
@@ -707,7 +647,6 @@ function togCy(k, el) {
 
   el.classList.toggle('cleared');
 
-  // Increment lifetime cycle clears only on new clear, never on undo
   if (nowCleared) {
     const lt = getLT();
     const g  = GAMES.find(g => g.endgameModes.some(m => m.cycleKey === k));
@@ -725,6 +664,11 @@ function togCy(k, el) {
     const cnt  = g.endgameModes.filter(m => getCy(m.cycleKey)).length;
     const cnt2 = document.getElementById('cyc-' + g.id);
     if (cnt2) cnt2.textContent = cnt + '/' + g.endgameModes.length;
+  }
+
+  // Refresh session mode list if open
+  if (document.getElementById('sessionOverlay')?.classList.contains('open')) {
+    refreshSessionList();
   }
 }
 
@@ -748,7 +692,6 @@ function confirmReset() {
   }
 }
 
-// ── DEBUG: CYCLE RESET ──
 function confirmCycleReset() {
   if (confirm('DEBUG: Reset all cycle clear states? Weekly tasks and lifetime stats are unaffected.')) {
     const a = ld();
@@ -771,13 +714,334 @@ function initDebugLongPress() {
   el.addEventListener('mouseleave', () => clearTimeout(timer));
 }
 
-// ── CURRENCY DASHBOARD ──
+// ── SESSION MODE ──
+// v5.8: Fullscreen overlay for focused task execution.
+// Reads urgency-ordered, time-sensitive items only (mirrors buildFeaturedDay logic).
+// Drives existing togT() and togCy() — no new state owners.
+// Session timer counts up from open. Countdown timers update every 60s.
+// Completed items bloom (300ms) then slide out (500ms).
 
-// calcProjection() — pull guarantee projection
-// Returns: { pullsToGuarantee, currencyNeeded, weeksToGoal, alreadyEnough }
-// onGuarantee: true = lost last 50/50, so next 5-star is guaranteed (1x hardPity needed)
-//              false = won last 50/50 or unknown, so may need 2x hardPity worst case
-// For games without 50/50 (czn partner banner), always 1x hardPity from current pity.
+let sessionTimerInterval = null;
+let sessionCountdownInterval = null;
+let sessionStartTime = null;
+
+// buildSessionList() — pure read, returns structured item array
+// Only time-sensitive items: urgent cycles (≤2d), all unlocked uncleared
+// cycles within 14d or weekly, and dailies with remaining tasks.
+// Does NOT include cycles > 14d out (can wait).
+function buildSessionList() {
+  const s = wsFull();
+  const items = [];
+
+  GAMES.forEach(g => {
+    // Urgent cycle clears — due within 2 days
+    g.endgameModes.forEach(m => {
+      if (getCy(m.cycleKey) || !isCycleUnlocked(m.cycleKey)) return;
+      const d = daysUntilCycleEnds(m.cycleKey);
+      if (d !== null && d <= 2) {
+        items.push({
+          type: 'cycle',
+          gameId: g.id,
+          gameShort: g.short,
+          accentVar: g.accent,
+          label: m.name,
+          cycleKey: m.cycleKey,
+          days: d,
+          meta: d <= 0 ? 'Resets TODAY' : d === 1 ? 'Resets TOMORROW' : d + 'd left',
+          urgent: true,
+        });
+      }
+    });
+
+    // Daily task blocks — only if any remain
+    const undoneDailies = g.daily
+      .map((t, i) => ({ task: t, idx: i }))
+      .filter(({ idx }) => !getv(s, g.id, 'daily', idx));
+
+    if (undoneDailies.length > 0) {
+      const countdown = resetCountdownLabel(g.id);
+      items.push({
+        type: 'dailyBlock',
+        gameId: g.id,
+        gameShort: g.short,
+        accentVar: g.accent,
+        label: `${undoneDailies.length} ${undoneDailies.length === 1 ? 'daily' : 'dailies'} remaining`,
+        meta: `resets in ${countdown}`,
+        urgent: false,
+        subtasks: undoneDailies,
+        expanded: false,
+      });
+    }
+
+    // Non-urgent cycle clears — weekly or ≤14d
+    g.endgameModes.forEach(m => {
+      if (getCy(m.cycleKey) || !isCycleUnlocked(m.cycleKey)) return;
+      const d = daysUntilCycleEnds(m.cycleKey);
+      const isUrgent = d !== null && d <= 2;
+      if (isUrgent) return; // already added above
+      if (d === null || d <= 14) {
+        items.push({
+          type: 'cycle',
+          gameId: g.id,
+          gameShort: g.short,
+          accentVar: g.accent,
+          label: m.name,
+          cycleKey: m.cycleKey,
+          days: d,
+          meta: d === null ? 'Weekly reset' : d + 'd left',
+          urgent: false,
+        });
+      }
+    });
+  });
+
+  return items;
+}
+
+// renderSessionList() — builds inner HTML for #sessionList
+// Preserves expanded state across refreshes using data attributes
+function renderSessionList() {
+  const items = buildSessionList();
+  const list  = document.getElementById('sessionList');
+  if (!list) return;
+
+  if (!items.length) {
+    list.innerHTML = `
+      <div class="sm-clear">
+        <div class="sm-clear-glyph">✦</div>
+        <div class="sm-clear-title">OBJECTIVES CLEAR</div>
+        <div class="sm-clear-sub">Good session, Operator.</div>
+      </div>`;
+    return;
+  }
+
+  // Track which daily blocks were expanded before re-render
+  const expandedBlocks = new Set();
+  list.querySelectorAll('.sm-daily-block.expanded').forEach(el => {
+    expandedBlocks.add(el.dataset.gameId);
+  });
+
+  const rankLabels = ['01','02','03','04','05','06','07','08','09','10'];
+  let rank = 0;
+
+  list.innerHTML = items.map(item => {
+    const accent    = `var(${item.accentVar})`;
+    const accentBg  = `var(${item.accentVar}-dim)`;
+    const rankLabel = rankLabels[rank++] || '—';
+
+    if (item.type === 'cycle') {
+      return `<div class="sm-item sm-cycle${item.urgent ? ' sm-urgent' : ''}" data-cycle-key="${item.cycleKey}">
+        <div class="sm-accent-bar" style="background:${accent}"></div>
+        <div class="sm-item-inner">
+          <div class="sm-item-top">
+            <span class="sm-rank">${rankLabel}</span>
+            <span class="sm-game-tag" style="background:${accent}22;color:${accent}">${item.gameShort}</span>
+            <span class="sm-label">${item.label}</span>
+            <span class="sm-meta${item.urgent ? ' sm-meta-urgent' : ''}">${item.meta}</span>
+          </div>
+          <button class="sm-check-btn" style="--item-accent:${accent}" onclick="sessionToggleCycle('${item.cycleKey}', this)">
+            <span class="sm-check-icon">○</span>
+            <span>Mark cleared</span>
+          </button>
+        </div>
+      </div>`;
+    }
+
+    if (item.type === 'dailyBlock') {
+      const isExpanded = expandedBlocks.has(item.gameId);
+      const subtaskHTML = item.subtasks.map(({ task, idx }) => `
+        <div class="sm-subtask" data-game-id="${item.gameId}" data-idx="${idx}" onclick="sessionToggleDaily('${item.gameId}', ${idx}, this)">
+          <div class="sm-sub-check" style="border-color:${accent}44"></div>
+          <span class="sm-sub-text">${task.t}</span>
+          <span class="sm-sub-tag tag-${task.tag}">${task.tag}</span>
+        </div>`).join('');
+
+      return `<div class="sm-item sm-daily-block${isExpanded ? ' expanded' : ''}" data-game-id="${item.gameId}">
+        <div class="sm-accent-bar" style="background:${accent}"></div>
+        <div class="sm-item-inner">
+          <div class="sm-item-top sm-expandable" onclick="sessionExpandDaily(this.closest('.sm-daily-block'))">
+            <span class="sm-rank">${rankLabel}</span>
+            <span class="sm-game-tag" style="background:${accent}22;color:${accent}">${item.gameShort}</span>
+            <span class="sm-label">${item.label}</span>
+            <span class="sm-meta">${item.meta}</span>
+            <span class="sm-expand-arrow">▾</span>
+          </div>
+          <div class="sm-subtasks">${subtaskHTML}</div>
+        </div>
+      </div>`;
+    }
+
+    return '';
+  }).join('');
+}
+
+// refreshSessionList() — called after togT/togCy to update live
+// Completed items animate out, then list re-renders
+function refreshSessionList() {
+  renderSessionList();
+  updateSessionCountdowns();
+}
+
+// sessionExpandDaily() — toggle expand/collapse daily subtask block
+function sessionExpandDaily(blockEl) {
+  blockEl.classList.toggle('expanded');
+}
+
+// sessionToggleDaily() — tap a subtask row inside session mode
+// Calls real togT() — same state, same sync chain
+function sessionToggleDaily(gid, idx, el) {
+  if (el.classList.contains('sm-completing')) return;
+  el.classList.add('sm-completing');
+
+  // Fire real toggle
+  const s = wsFull();
+  const cur = getv(s, gid, 'daily', idx);
+  setv(gid, 'daily', idx, !cur);
+
+  // Update main app state visuals
+  const card = document.getElementById('card-' + gid);
+  if (card) {
+    const g  = GAMES.find(x => x.id === gid);
+    const s2 = wsFull();
+    const pct = gamePct(g, s2);
+    const done = g.daily.filter((_,i) => getv(s2,g.id,'daily',i)).length +
+                 g.weekly.filter((_,i) => getv(s2,g.id,'weekly',i)).length;
+    const pn = card.querySelector('.g-pct-num'); if (pn) pn.textContent = pct + '%';
+    const ps = card.querySelector('.g-pct-sub'); if (ps) ps.textContent = done + '/' + (g.daily.length + g.weekly.length);
+    const pf = card.querySelector('.pfill');     if (pf) pf.style.width = pct + '%';
+    if (pct >= 100) card.classList.add('done-card');
+    else            card.classList.remove('done-card');
+  }
+
+  updateGlobals(); buildUrgency(); buildTodayPanel(); checkAllAchievements(); updateLT();
+  updateCurrencyEarned(gid);
+
+  // Bloom animation then refresh list
+  setTimeout(() => { renderSessionList(); updateSessionCountdowns(); }, 350);
+}
+
+// sessionToggleCycle() — tap a cycle row inside session mode
+// Calls real togCy() equivalent logic — same state, same sync chain
+function sessionToggleCycle(cycleKey, btn) {
+  if (btn.classList.contains('sm-completing')) return;
+  btn.classList.add('sm-completing');
+
+  const item = btn.closest('.sm-item');
+  if (item) item.classList.add('sm-bloom');
+
+  // Fire real cycle toggle
+  const cyConf   = CONFIG.cycles[cycleKey];
+  const isWeekly = cyConf?.type === 'weekly';
+  const nowCleared = !getCy(cycleKey);
+
+  if (isWeekly) setCyWeekly(cycleKey, nowCleared);
+  else          setCy(cycleKey, nowCleared);
+
+  if (nowCleared) {
+    const lt = getLT();
+    const g  = GAMES.find(g => g.endgameModes.some(m => m.cycleKey === cycleKey));
+    if (g) {
+      const gameKey = g.id + 'LifetimeCycleClears';
+      lt[gameKey] = (lt[gameKey] || 0) + 1;
+    }
+    lt.totalCycleClears = (lt.totalCycleClears || 0) + 1;
+    saveLT(lt);
+  }
+
+  // Update main app
+  buildUrgency(); buildTodayPanel(); updateGlobals(); checkAllAchievements(); updateLT();
+  const g = GAMES.find(g => g.endgameModes.some(m => m.cycleKey === cycleKey));
+  if (g) {
+    // Update game card cycle row
+    const cycleRows = document.querySelectorAll(`#card-${g.id} .cycle-row`);
+    cycleRows.forEach(row => {
+      const onclick = row.getAttribute('onclick') || '';
+      if (onclick.includes(cycleKey)) {
+        if (nowCleared) row.classList.add('cleared');
+        else            row.classList.remove('cleared');
+      }
+    });
+    const cnt  = g.endgameModes.filter(m => getCy(m.cycleKey)).length;
+    const cnt2 = document.getElementById('cyc-' + g.id);
+    if (cnt2) cnt2.textContent = cnt + '/' + g.endgameModes.length;
+  }
+
+  // Bloom then slide out, then refresh list
+  setTimeout(() => {
+    if (item) item.classList.add('sm-slideout');
+    setTimeout(() => { renderSessionList(); updateSessionCountdowns(); }, 500);
+  }, 300);
+}
+
+// updateSessionCountdowns() — refresh meta countdown text on all daily blocks
+function updateSessionCountdowns() {
+  const blocks = document.querySelectorAll('.sm-daily-block');
+  blocks.forEach(block => {
+    const gid = block.dataset.gameId;
+    if (!gid) return;
+    const meta = block.querySelector('.sm-meta');
+    if (meta) meta.textContent = `resets in ${resetCountdownLabel(gid)}`;
+  });
+  // Also update cycle urgency meta
+  document.querySelectorAll('.sm-cycle').forEach(item => {
+    const ck  = item.dataset.cycleKey;
+    const d   = daysUntilCycleEnds(ck);
+    const meta = item.querySelector('.sm-meta');
+    if (meta && d !== null) {
+      meta.textContent = d <= 0 ? 'Resets TODAY' : d === 1 ? 'Resets TOMORROW' : d + 'd left';
+    }
+  });
+}
+
+// updateSessionTimer() — updates elapsed time in session header
+function updateSessionTimer() {
+  if (!sessionStartTime) return;
+  const elapsed = Math.floor((Date.now() - sessionStartTime) / 1000);
+  const m = Math.floor(elapsed / 60);
+  const s = elapsed % 60;
+  const el = document.getElementById('sessionTimer');
+  if (el) el.textContent = `${m}:${String(s).padStart(2,'0')}`;
+}
+
+// openSession() — show the session overlay
+function openSession() {
+  const overlay = document.getElementById('sessionOverlay');
+  if (!overlay) return;
+  overlay.classList.add('open');
+  document.body.style.overflow = 'hidden';
+
+  // Set date + start timer
+  const dateStr = new Date().toLocaleDateString('en-US', {
+    weekday: 'long', month: 'short', day: 'numeric'
+  }).toUpperCase();
+  const dateEl = document.getElementById('sessionDate');
+  if (dateEl) dateEl.textContent = dateStr;
+
+  sessionStartTime = Date.now();
+  const timerEl = document.getElementById('sessionTimer');
+  if (timerEl) timerEl.textContent = '0:00';
+
+  clearInterval(sessionTimerInterval);
+  sessionTimerInterval = setInterval(updateSessionTimer, 1000);
+
+  clearInterval(sessionCountdownInterval);
+  sessionCountdownInterval = setInterval(updateSessionCountdowns, 60000);
+
+  renderSessionList();
+}
+
+// closeSession() — hide the session overlay
+function closeSession() {
+  const overlay = document.getElementById('sessionOverlay');
+  if (!overlay) return;
+  overlay.classList.remove('open');
+  document.body.style.overflow = '';
+  clearInterval(sessionTimerInterval);
+  clearInterval(sessionCountdownInterval);
+  sessionStartTime = null;
+}
+
+// ── CURRENCY DASHBOARD ──
 function calcProjection(gid, balance, pityVal, onGuarantee) {
   const pull   = CONFIG.pulls[gid];
   const weekly = CONFIG.weeklyYields[gid];
@@ -785,16 +1049,10 @@ function calcProjection(gid, balance, pityVal, onGuarantee) {
 
   const pullsOwned = Math.floor(balance / pull.perPull);
 
-  // Pulls needed to hit next guarantee from current pity
-  // If on guarantee: just need to reach hardPity once from current pity
-  // If not on guarantee with 50/50: worst case is lose this 50/50 (hardPity - pity pulls)
-  //   then full second hardPity for the guarantee
   let pullsToGuarantee;
   if (!pull.has50_50 || onGuarantee) {
-    // Straight shot to hard pity from current pity
     pullsToGuarantee = pull.hardPity - pityVal;
   } else {
-    // May lose 50/50: (pulls to hit hardPity) + full hardPity for guarantee
     pullsToGuarantee = (pull.hardPity - pityVal) + pull.hardPity;
   }
   pullsToGuarantee = Math.max(1, pullsToGuarantee);
@@ -830,7 +1088,6 @@ function buildCurrencySection() {
     const earnedSoFar = calcEarned(g.id, s);
     const proj       = calcProjection(g.id, balance, pityVal, onGuar);
 
-    // Projection row HTML
     let projHTML = '';
     if (proj) {
       if (proj.alreadyEnough) {
@@ -850,7 +1107,6 @@ function buildCurrencySection() {
       }
     }
 
-    // 50/50 state toggle — only for games with 50/50
     const guarToggle = pull.has50_50 ? `
       <div class="cc-guar-row">
         <label class="cc-guar-label" for="guar-${g.id}">
@@ -908,20 +1164,16 @@ function calcEarned(gid, s) {
   return total;
 }
 
-// updateCurrency() — v5.6: now updates pull count display live
-// Single source of truth for balance → pulls calculation
 function updateCurrency(gid, val) {
   const cur = getCur();
   cur[gid] = Math.max(0, parseInt(val) || 0);
   saveCur(cur);
   const pull = CONFIG.pulls[gid]; if (!pull) return;
 
-  // Update progress bar
   const barPct = Math.min(100, Math.round(cur[gid] / (pull.hardPity * pull.perPull) * 100));
   const barEl  = document.getElementById('cbar-' + gid);
   if (barEl) barEl.style.width = barPct + '%';
 
-  // Update pull count display — this was missing in v5.5
   const pulls    = Math.floor(cur[gid] / pull.perPull);
   const pullsEl  = document.getElementById('cpulls-' + gid);
   if (pullsEl) pullsEl.textContent = pulls + ' pulls';
@@ -949,34 +1201,19 @@ function updateCurrencyEarned(gid) {
 }
 
 // ── LIFETIME STATS ──
-// v5.6: updateLT() no longer writes cycle clear counts or perfect week counts.
-// Those are now owned exclusively by togCy() and checkWeekRollover() respectively.
-// updateLT() is responsible for: streak, task totals, dailyCompletions, hasNote, Notion sync.
 function updateLT() {
   const s  = wsFull();
   const lt = getLT();
   if (!lt.deployDate) lt.deployDate = new Date().toISOString().slice(0, 10);
 
-  // Task totals — Math.max is correct: never decrements on uncheck
   lt.totalTasksCompleted = Math.max(lt.totalTasksCompleted || 0, totalDone(s));
-
-  // Streak
   lt.currentStreak = getStreak();
   lt.longestStreak = Math.max(lt.longestStreak || 0, getStreak());
 
-  // Daily completions per game — used by o_event and p_trailblaze achievements
-  // Stores a flat count of distinct days each game's dailies were fully completed
-  // this week. Resets when the week key changes (new Monday).
-  // Structure: lt.dailyCompletions = { _week: 'W2026-05-11', czn: 0, hsr: 2, ww: 1, zzz: 3 }
-  // Owner: updateLT() only. Single flat integer per game — safe to read directly
-  // in achievement check functions.
   const weekKey = wk();
   if (!lt.dailyCompletions || lt.dailyCompletions._week !== weekKey) {
-    // New week — reset all counts
     lt.dailyCompletions = { _week: weekKey };
   }
-  // Seen-today tracking lives in a parallel key to prevent double-counting
-  // within the same session. Uses dk() as the unique day identifier per game.
   if (!lt._dcSeen) lt._dcSeen = {};
   GAMES.forEach(g => {
     const dayKey = dk(g.id);
@@ -991,8 +1228,6 @@ function updateLT() {
   syncLTToNotion(lt);
 }
 
-// Helper for achievements — returns count of distinct days a game's dailies were completed this week
-// Reads from flat lt.dailyCompletions[gid] integer — safe to call from achievement checks
 function getDailyCompletionCount(gid) {
   const lt = getLT();
   const weekKey = wk();
@@ -1111,8 +1346,6 @@ async function flushOutbox() {
   if (!remaining.length) setSyncStatus('ok', 'All items synced');
 }
 
-// v5.6: Sync status starts idle — no stuck "Connecting to archive" message.
-// Status only transitions to pending/ok/err when a sync actually fires.
 function setSyncStatus(state, msg) {
   const dot = document.getElementById('syncDot');
   const m   = document.getElementById('syncMsg');
@@ -1211,7 +1444,6 @@ function triggerPhantomFlash() {
 }
 
 // ── END OF WEEK MODAL ──
-// v5.6: checkWeekRollover() is sole owner of totalPerfectWeeks increment.
 function checkWeekRollover() {
   const prev    = localStorage.getItem(PREVWK);
   const current = wk();
@@ -1227,7 +1459,6 @@ function checkWeekRollover() {
     const lt = getLT();
     const prevDisp = DISPATCHES.filter(ds => checkDispatch(ds, pd, lt)).length;
 
-    // Sole owner of totalPerfectWeeks — only increments on actual week close
     if (prevPct >= 100) {
       lt.totalPerfectWeeks = (lt.totalPerfectWeeks || 0) + 1;
     }
@@ -1277,7 +1508,6 @@ function renderAchievements() {
     { v: lt.deployDate||'—',            l: 'Deployed' },
   ].map(s => `<div class="record-stat"><div class="rs-val">${s.v}</div><div class="rs-lbl">${s.l}</div></div>`).join('');
 
-  // v5.6: sync status initialised to idle on achievements tab open — no stuck messages
   const syncMsgEl = document.getElementById('syncMsg');
   if (syncMsgEl && (syncMsgEl.textContent === 'Connecting to archive…' || syncMsgEl.textContent === '')) {
     initSyncStatus();
@@ -1324,20 +1554,15 @@ function renderAchievements() {
 }
 
 // ── CALENDAR ──
-
-// resetCountdownLabel — returns "Xh Ym" until a game's next daily reset
-// Used by buildFeaturedDay() to show time pressure per game
 function resetCountdownLabel(gameId) {
   const rt = CONFIG.resetTimes[gameId];
   if (!rt || rt.dailyUTC === null) {
-    // CZN — count down to next Sunday 18:00 UTC
     const now = new Date();
     const next = new Date(now);
-    const day = now.getUTCDay(); // 0=Sun
-    const daysUntilSun = day === 0 ? 7 : 7 - day; // always next Sunday, not today
+    const day = now.getUTCDay();
+    const daysUntilSun = day === 0 ? 7 : 7 - day;
     next.setUTCDate(now.getUTCDate() + daysUntilSun);
     next.setUTCHours(18, 0, 0, 0);
-    // If today is Sunday and before 18:00 UTC, reset is today
     if (day === 0 && now.getUTCHours() < 18) {
       next.setUTCDate(now.getUTCDate());
       next.setUTCHours(18, 0, 0, 0);
@@ -1356,27 +1581,20 @@ function resetCountdownLabel(gameId) {
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
 
-// buildFeaturedDay() — session planning card for today
-// Shows: priority order (urgent cycles first, then dailies with reset countdowns),
-// estimated session time (dailies + due cycles), and full can-wait list.
-// This is the primary calendar view — replaces the old 7-column grid as headline content.
 function buildFeaturedDay() {
   const s   = wsFull();
   const now = new Date();
-  const CYCLE_MINS = 30; // flat estimate per uncleared cycle mode due today
+  const CYCLE_MINS = 30;
 
-  // ── Build priority items ──
-  // Each item: { game, label, color, urgency, mins, isReset }
-  const urgent   = []; // due within 2 days
-  const normal   = []; // dailies with reset pressure
-  const canWait  = []; // cycles > 14 days out, not cleared
+  const urgent   = [];
+  const normal   = [];
+  const canWait  = [];
 
   GAMES.forEach(g => {
     const accent = `var(${g.accent})`;
 
-    // Uncleared cycle modes — sort into urgent vs canWait
     g.endgameModes.forEach(m => {
-      if (getCy(m.cycleKey)) return; // already cleared
+      if (getCy(m.cycleKey)) return;
       if (!isCycleUnlocked(m.cycleKey)) return;
       const d = daysUntilCycleEnds(m.cycleKey);
       if (d !== null && d <= 2) {
@@ -1386,14 +1604,12 @@ function buildFeaturedDay() {
           mins: CYCLE_MINS, urgent: true
         });
       } else if (d === null || d <= 14) {
-        // Weekly or due within 2 weeks — include in normal session
         normal.push({
           game: g.short, label: m.name, color: accent,
           meta: d === null ? 'Weekly reset' : d + 'd left',
           mins: CYCLE_MINS, urgent: false
         });
       } else {
-        // > 14 days — can wait
         canWait.push({
           game: g.short, label: m.name, color: accent,
           meta: d + 'd left'
@@ -1401,7 +1617,6 @@ function buildFeaturedDay() {
       }
     });
 
-    // Dailies — always include if any unchecked remain
     const undoneDailies = g.daily.filter((_,i) => !getv(s, g.id, 'daily', i));
     if (undoneDailies.length > 0) {
       const countdown = resetCountdownLabel(g.id);
@@ -1418,14 +1633,12 @@ function buildFeaturedDay() {
     }
   });
 
-  // Sort urgent by days remaining, normal puts dailies after cycles
   urgent.sort((a, b) => {
     const da = a.meta.includes('TODAY') ? 0 : a.meta.includes('TOMORROW') ? 1 : 2;
     const db = b.meta.includes('TODAY') ? 0 : b.meta.includes('TOMORROW') ? 1 : 2;
     return da - db;
   });
 
-  // ── Time budget ──
   const allItems = [...urgent, ...normal];
   const totalMins = allItems.reduce((sum, i) => sum + (i.mins || 0), 0);
   const budgetLabel = totalMins === 0
@@ -1436,10 +1649,8 @@ function buildFeaturedDay() {
 
   const loadClass = totalMins > 90 ? 'heavy' : totalMins > 45 ? 'medium' : 'light';
   const loadColor = totalMins > 90 ? 'var(--danger)' : totalMins > 45 ? 'var(--warn)' : 'var(--ok)';
-
   const dateStr = now.toLocaleDateString('en-US', { weekday:'long', month:'short', day:'numeric' }).toUpperCase();
 
-  // ── Render priority list ──
   function renderItem(item, rank) {
     const rankLabels = ['01 FIRST','02 THEN','03 NEXT','04 AFTER','05 THEN','06 THEN','07 THEN','08 THEN'];
     const rankLabel = rankLabels[rank] || `${String(rank+1).padStart(2,'0')} THEN`;
@@ -1463,7 +1674,6 @@ function buildFeaturedDay() {
     ? allItems.map((item, i) => renderItem(item, i)).join('')
     : `<div class="fd-clear">✓ ALL TASKS COMPLETE — NOTHING LEFT FOR TODAY</div>`;
 
-  // ── Render can-wait list ──
   const canWaitHTML = canWait.length
     ? canWait.map(item => `
         <div class="fd-wait-item">
@@ -1494,25 +1704,19 @@ function buildFeaturedDay() {
     </div>`;
 }
 
-// buildCalendar() — main calendar tab builder
-// Renders: featured day session planner, week strip, workload burn chart
 function buildCalendar() {
   const s   = wsFull();
   const now = new Date();
   const dow = now.getDay();
-  const ti  = dow === 0 ? 6 : dow - 1; // index into WEEK_PLAN (0=Mon)
+  const ti  = dow === 0 ? 6 : dow - 1;
 
-  // Week range label
   const mon = new Date(now); mon.setDate(now.getDate() - ti);
   const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
   const f   = d => d.toLocaleDateString('en-US', { month:'short', day:'numeric' });
   document.getElementById('calTitle').textContent = `WEEK OF ${f(mon).toUpperCase()} — ${f(sun).toUpperCase()}`;
 
-  // Featured day — session planner
   document.getElementById('featuredDay').innerHTML = buildFeaturedDay();
 
-  // Week strip — compact 7-day horizontal scroll
-  // Each day: name, load bar, game dot cluster from WEEK_PLAN
   const LC = { light:'#4ade80', medium:'#ffb347', heavy:'#ff5252' };
   const LP = { light:30, medium:60, heavy:90 };
   const compRatio = totalDone(s) / Math.max(1, GAMES.reduce((a,g) => a + g.daily.length + g.weekly.length, 0));
@@ -1524,9 +1728,7 @@ function buildCalendar() {
     let lp = LP[d.load];
     if (isPast) lp = Math.max(5, lp - Math.round(compRatio * lp));
     const lc = lp > 65 ? LC.heavy : lp > 35 ? LC.medium : LC.light;
-    const dots = d.tasks.map((t, ti2) => {
-      // Find which game this task belongs to by color match
-      const gIdx = GAME_COLORS.indexOf(t.c);
+    const dots = d.tasks.map((t) => {
       return `<div class="ws-dot" style="background:${t.c};opacity:${isPast?0.3:1}"></div>`;
     }).join('');
     return `<div class="ws-day${isT ? ' ws-today' : ''}${isPast ? ' ws-past' : ''}">
@@ -1539,7 +1741,6 @@ function buildCalendar() {
     </div>`;
   }).join('');
 
-  // Workload burn chart — unchanged
   document.getElementById('burnGames').innerHTML = GAMES.map(g => {
     const p = Math.round(g.weeklyLoad / 3 * 100);
     return `<div class="burn-row">
@@ -1599,7 +1800,7 @@ setTimeout(initDebugLongPress, 500);
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-  navigator.serviceWorker.register('/czn-ops-theory/sw.js')
+    navigator.serviceWorker.register('/czn-ops-theory/sw.js')
       .then(reg => console.log('NEXUS SW registered:', reg.scope))
       .catch(err => console.log('SW registration failed:', err));
   });

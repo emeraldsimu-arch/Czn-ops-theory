@@ -1,11 +1,10 @@
 // ═══════════════════════════════════════════════════════════
-// NEXUS v5.6 — GAME DATA
+// NEXUS v5.8 — GAME DATA
 // Task lists, endgame modes, calendar plan
-// Last verified: 2026-05-14 (Game8, Icy Veins, Fandom wiki, BitTopup)
-// Changes from v5.5:
-//   - ww_tg (Fantasies of Thousand Gateways) moved from WW weekly[]
-//     to WW endgameModes[] — it is a cycle clear, not a weekly task
-//   - WW weekly[] reduced from 3 to 2 items accordingly
+// Last verified: 2026-05-15 (Game8, Icy Veins, Fandom wiki, BitTopup)
+// Changes from v5.7:
+//   - czn resetNote updated: CZN has daily AND weekly reset at 18:00 UTC
+//     Previously incorrectly stated weekly-only
 // ═══════════════════════════════════════════════════════════
 
 const GAMES = [
@@ -22,7 +21,7 @@ const GAMES = [
     dailyLoad: 0.3,
     weeklyLoad: 1.5,
     resetDay: 0,
-    resetNote: 'Resets Sunday 18:00 UTC',
+    resetNote: 'Daily & Weekly 18:00 UTC (1PM CT)',
 
     daily: [
       { t: 'Achievement Schedule — earn 100 points (60 Crystals)', tag: 'res', jade: 60 },
@@ -75,15 +74,10 @@ const GAMES = [
     ],
 
     weekly: [
-      // ww_tg moved to endgameModes — it is a cycle clear with a weekly reset,
-      // not a weekly task. Keeping it here caused it to be counted twice
-      // (once in weekly tasks, once in urgency/cycle tracking).
       { t: 'Weekly tacet discord boss materials ×3 cap', tag: 'mat', jade: 0 },
       { t: 'Cyberpunk Edgerunners collab event', tag: 'event', jade: 0, deadline: 'Jun 7' },
     ],
 
-    // ww_tg added here — weekly type in config means it resets with the WW
-    // weekly key (Monday 20:00 UTC), consistent with all other weekly cycles
     endgameModes: [
       { id: 'ww_toa', name: 'Tower of Adversity (all zones incl. Hazard Zone)', cycleKey: 'ww_toa' },
       { id: 'ww_ww',  name: 'Whimpering Wastes',                                cycleKey: 'ww_ww'  },
