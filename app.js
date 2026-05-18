@@ -1,15 +1,13 @@
-// NEXUS v5.9 — APP.JS
+// ═══════════════════════════════════════════════════════════
+// NEXUS v5.10 — APP.JS
 // All application logic, state management, Notion sync
 // GitHub: Emereldsimu-arch/czn-ops-theory
-// Changes from v5.8:
-//   - sessionToggleDaily() fixed: always writes true, updates main card trow DOM
-//   - sessionToggleCycle() fixed: always writes cleared, never toggles
-//   - checkWeekRollover() fixed: reads prev-week daily keys from storage directly
-//   - togT(), gamePct(), gPct(), totalDone(), allMats() fixed: weekly task state
-//     now reads using per-game wk(gid) key instead of wsFull() which used the
-//     Monday-anchored general key — was causing CZN weeklies to always read as
-//     0 (stored under Sunday-anchored key) and percentage to never update on tap
-//   - Version bump to 5.9
+// Changes from v5.9:
+//   - openSession(): FAB hidden on open, power-on flicker triggered
+//   - closeSession(): FAB restored on close
+//   - buildCurrencySection(): fuel gauge pity bars, terminal aesthetic,
+//     data-game-label attribute on currency cards for watermark
+//   - Version bump to 5.10
 // ═══════════════════════════════════════════════════════════
 
 // ── STORAGE KEYS ──
@@ -50,9 +48,6 @@ function wk(gameId) {
 }
 
 // ── DAILY KEY ──
-// v5.8: CZN bypass removed. CZN now has dailyUTC: 18 in CONFIG.resetTimes
-// so it falls through to standard daily key logic.
-// Format: 'D2026-05-14-czn', 'D2026-05-14-hsr', etc.
 function dk(gameId) {
   const rt = CONFIG.resetTimes[gameId];
   if (!rt || rt.dailyUTC === null) return wk('czn');
@@ -206,8 +201,6 @@ function allMats(s) {
   return t > 0 && d >= t;
 }
 function gPct(s) {
-  // s is ignored for this calculation — we read directly from storage
-  // using per-game week keys so CZN weeklies use the Sunday-anchored key.
   const a = ld();
   let t = 0, d = 0;
   GAMES.forEach(g => {
@@ -218,7 +211,6 @@ function gPct(s) {
   return t > 0 ? Math.round(d / t * 100) : 0;
 }
 function gamePct(g, s) {
-  // Read weekly state directly from storage using correct per-game week key.
   const a = ld();
   const wKey = wk(g.id);
   let t = g.daily.length + g.weekly.length, d = 0;
@@ -623,20 +615,14 @@ function togT(gid, type, idx, el, ev) {
   setv(gid, type, idx, !cur);
   el.classList.toggle('done');
 
-  const g  = GAMES.find(x => x.id === gid);
-  // Use game-specific week state for percentage calculation.
-  // wsFull() uses wk() without gameId (Monday-anchored) which is wrong for CZN
-  // whose weeklies are stored under wk('czn') (Sunday-anchored).
-  // Read state fresh from storage using the correct per-game key.
+  const g   = GAMES.find(x => x.id === gid);
   const a   = ld();
   const wKey = wk(gid);
-  const dKey = dk(gid);
   const s2  = {
     [gid]: {
       weekly: a[wKey]?.[gid]?.weekly || {},
     }
   };
-  // Daily reads always go to dk() directly via getv(), so passing any s2 is fine for daily
   const pct  = gamePct(g, s2);
   const dailyDone  = g.daily.filter((_,i)  => getv(s2, g.id, 'daily',  i)).length;
   const weeklyDone = g.weekly.filter((_,i) => {
@@ -649,7 +635,6 @@ function togT(gid, type, idx, el, ev) {
     const pn = card.querySelector('.g-pct-num'); if (pn) pn.textContent = pct + '%';
     const ps = card.querySelector('.g-pct-sub'); if (ps) ps.textContent = done + '/' + (g.daily.length + g.weekly.length);
     const pf = card.querySelector('.pfill');     if (pf) pf.style.width = pct + '%';
-    // Update weekly section count
     const wSec = card.querySelectorAll('.tsec .tcnt');
     if (wSec.length >= 3) wSec[2].textContent = weeklyDone + '/' + g.weekly.length;
     if (pct >= 100) card.classList.add('done-card');
@@ -658,7 +643,6 @@ function togT(gid, type, idx, el, ev) {
   updateGlobals(); buildUrgency(); buildTodayPanel(); checkAllAchievements(); updateLT();
   updateCurrencyEarned(gid);
 
-  // Refresh session mode list if open
   if (document.getElementById('sessionOverlay')?.classList.contains('open')) {
     refreshSessionList();
   }
@@ -694,7 +678,6 @@ function togCy(k, el) {
     if (cnt2) cnt2.textContent = cnt + '/' + g.endgameModes.length;
   }
 
-  // Refresh session mode list if open
   if (document.getElementById('sessionOverlay')?.classList.contains('open')) {
     refreshSessionList();
   }
@@ -743,26 +726,15 @@ function initDebugLongPress() {
 }
 
 // ── SESSION MODE ──
-// v5.8: Fullscreen overlay for focused task execution.
-// Reads urgency-ordered, time-sensitive items only (mirrors buildFeaturedDay logic).
-// Drives existing togT() and togCy() — no new state owners.
-// Session timer counts up from open. Countdown timers update every 60s.
-// Completed items bloom (300ms) then slide out (500ms).
-
 let sessionTimerInterval = null;
 let sessionCountdownInterval = null;
 let sessionStartTime = null;
 
-// buildSessionList() — pure read, returns structured item array
-// Only time-sensitive items: urgent cycles (≤2d), all unlocked uncleared
-// cycles within 14d or weekly, and dailies with remaining tasks.
-// Does NOT include cycles > 14d out (can wait).
 function buildSessionList() {
   const s = wsFull();
   const items = [];
 
   GAMES.forEach(g => {
-    // Urgent cycle clears — due within 2 days
     g.endgameModes.forEach(m => {
       if (getCy(m.cycleKey) || !isCycleUnlocked(m.cycleKey)) return;
       const d = daysUntilCycleEnds(m.cycleKey);
@@ -781,7 +753,6 @@ function buildSessionList() {
       }
     });
 
-    // Daily task blocks — only if any remain
     const undoneDailies = g.daily
       .map((t, i) => ({ task: t, idx: i }))
       .filter(({ idx }) => !getv(s, g.id, 'daily', idx));
@@ -801,12 +772,11 @@ function buildSessionList() {
       });
     }
 
-    // Non-urgent cycle clears — weekly or ≤14d
     g.endgameModes.forEach(m => {
       if (getCy(m.cycleKey) || !isCycleUnlocked(m.cycleKey)) return;
       const d = daysUntilCycleEnds(m.cycleKey);
       const isUrgent = d !== null && d <= 2;
-      if (isUrgent) return; // already added above
+      if (isUrgent) return;
       if (d === null || d <= 14) {
         items.push({
           type: 'cycle',
@@ -826,8 +796,6 @@ function buildSessionList() {
   return items;
 }
 
-// renderSessionList() — builds inner HTML for #sessionList
-// Preserves expanded state across refreshes using data attributes
 function renderSessionList() {
   const items = buildSessionList();
   const list  = document.getElementById('sessionList');
@@ -843,7 +811,6 @@ function renderSessionList() {
     return;
   }
 
-  // Track which daily blocks were expanded before re-render
   const expandedBlocks = new Set();
   list.querySelectorAll('.sm-daily-block.expanded').forEach(el => {
     expandedBlocks.add(el.dataset.gameId);
@@ -854,7 +821,6 @@ function renderSessionList() {
 
   list.innerHTML = items.map(item => {
     const accent    = `var(${item.accentVar})`;
-    const accentBg  = `var(${item.accentVar}-dim)`;
     const rankLabel = rankLabels[rank++] || '—';
 
     if (item.type === 'cycle') {
@@ -903,34 +869,24 @@ function renderSessionList() {
   }).join('');
 }
 
-// refreshSessionList() — called after togT/togCy to update live
-// Completed items animate out, then list re-renders
 function refreshSessionList() {
   renderSessionList();
   updateSessionCountdowns();
 }
 
-// sessionExpandDaily() — toggle expand/collapse daily subtask block
 function sessionExpandDaily(blockEl) {
   blockEl.classList.toggle('expanded');
 }
 
-// sessionToggleDaily() — tap a subtask row inside session mode
-// Session mode only shows UNDONE tasks, so this is always a mark-done action.
-// Never toggles — always writes true. Prevents inversion bug.
-// Also updates the matching .trow on the main game card so it reflects as checked.
 function sessionToggleDaily(gid, idx, el) {
   if (el.classList.contains('sm-completing')) return;
   el.classList.add('sm-completing');
 
-  // Always mark done — session mode only surfaces undone tasks
   setv(gid, 'daily', idx, true);
 
-  // Update the matching trow on the main game card
   const card = document.getElementById('card-' + gid);
   if (card) {
     const trows = card.querySelectorAll('.tlist .trow');
-    // Daily trows are the first g.daily.length rows in the first .tlist
     const g = GAMES.find(x => x.id === gid);
     if (g && trows[idx]) {
       trows[idx].classList.add('done');
@@ -938,7 +894,6 @@ function sessionToggleDaily(gid, idx, el) {
       if (chk) { chk.style.borderColor = 'var(--accent)'; chk.style.background = 'var(--accent)'; }
     }
 
-    // Update card header stats
     const s2  = wsFull();
     const pct  = gamePct(g, s2);
     const done = g.daily.filter((_,i) => getv(s2,g.id,'daily',i)).length +
@@ -953,12 +908,9 @@ function sessionToggleDaily(gid, idx, el) {
   updateGlobals(); buildUrgency(); buildTodayPanel(); checkAllAchievements(); updateLT();
   updateCurrencyEarned(gid);
 
-  // Bloom then refresh session list
   setTimeout(() => { renderSessionList(); updateSessionCountdowns(); }, 350);
 }
 
-// sessionToggleCycle() — tap a cycle row inside session mode
-// Calls real togCy() equivalent logic — same state, same sync chain
 function sessionToggleCycle(cycleKey, btn) {
   if (btn.classList.contains('sm-completing')) return;
   btn.classList.add('sm-completing');
@@ -966,52 +918,39 @@ function sessionToggleCycle(cycleKey, btn) {
   const item = btn.closest('.sm-item');
   if (item) item.classList.add('sm-bloom');
 
-  // Always mark cleared — session mode only surfaces uncleared cycles.
-  // Never toggles — prevents inversion if getCy() races with main card state.
   const cyConf   = CONFIG.cycles[cycleKey];
   const isWeekly = cyConf?.type === 'weekly';
-  const nowCleared = true;
 
   if (isWeekly) setCyWeekly(cycleKey, true);
   else          setCy(cycleKey, true);
 
-  if (nowCleared) {
-    const lt = getLT();
-    const g  = GAMES.find(g => g.endgameModes.some(m => m.cycleKey === cycleKey));
-    if (g) {
-      const gameKey = g.id + 'LifetimeCycleClears';
-      lt[gameKey] = (lt[gameKey] || 0) + 1;
-    }
-    lt.totalCycleClears = (lt.totalCycleClears || 0) + 1;
-    saveLT(lt);
-  }
-
-  // Update main app
-  buildUrgency(); buildTodayPanel(); updateGlobals(); checkAllAchievements(); updateLT();
-  const g = GAMES.find(g => g.endgameModes.some(m => m.cycleKey === cycleKey));
+  const lt = getLT();
+  const g  = GAMES.find(g => g.endgameModes.some(m => m.cycleKey === cycleKey));
   if (g) {
-    // Update game card cycle row
+    const gameKey = g.id + 'LifetimeCycleClears';
+    lt[gameKey] = (lt[gameKey] || 0) + 1;
+  }
+  lt.totalCycleClears = (lt.totalCycleClears || 0) + 1;
+  saveLT(lt);
+
+  buildUrgency(); buildTodayPanel(); updateGlobals(); checkAllAchievements(); updateLT();
+  if (g) {
     const cycleRows = document.querySelectorAll(`#card-${g.id} .cycle-row`);
     cycleRows.forEach(row => {
       const onclick = row.getAttribute('onclick') || '';
-      if (onclick.includes(cycleKey)) {
-        if (nowCleared) row.classList.add('cleared');
-        else            row.classList.remove('cleared');
-      }
+      if (onclick.includes(cycleKey)) row.classList.add('cleared');
     });
     const cnt  = g.endgameModes.filter(m => getCy(m.cycleKey)).length;
     const cnt2 = document.getElementById('cyc-' + g.id);
     if (cnt2) cnt2.textContent = cnt + '/' + g.endgameModes.length;
   }
 
-  // Bloom then slide out, then refresh list
   setTimeout(() => {
     if (item) item.classList.add('sm-slideout');
     setTimeout(() => { renderSessionList(); updateSessionCountdowns(); }, 500);
   }, 300);
 }
 
-// updateSessionCountdowns() — refresh meta countdown text on all daily blocks
 function updateSessionCountdowns() {
   const blocks = document.querySelectorAll('.sm-daily-block');
   blocks.forEach(block => {
@@ -1020,7 +959,6 @@ function updateSessionCountdowns() {
     const meta = block.querySelector('.sm-meta');
     if (meta) meta.textContent = `resets in ${resetCountdownLabel(gid)}`;
   });
-  // Also update cycle urgency meta
   document.querySelectorAll('.sm-cycle').forEach(item => {
     const ck  = item.dataset.cycleKey;
     const d   = daysUntilCycleEnds(ck);
@@ -1031,7 +969,6 @@ function updateSessionCountdowns() {
   });
 }
 
-// updateSessionTimer() — updates elapsed time in session header
 function updateSessionTimer() {
   if (!sessionStartTime) return;
   const elapsed = Math.floor((Date.now() - sessionStartTime) / 1000);
@@ -1041,14 +978,22 @@ function updateSessionTimer() {
   if (el) el.textContent = `${m}:${String(s).padStart(2,'0')}`;
 }
 
-// openSession() — show the session overlay
+// v5.10: FAB hidden on open, power-on flicker, FAB restored on close
 function openSession() {
   const overlay = document.getElementById('sessionOverlay');
   if (!overlay) return;
+
+  // Power-on flicker — add class, remove after animation completes
+  overlay.classList.add('sm-poweron');
+  setTimeout(() => overlay.classList.remove('sm-poweron'), 460);
+
   overlay.classList.add('open');
   document.body.style.overflow = 'hidden';
 
-  // Set date + start timer
+  // Hide FAB while session is open
+  const fab = document.getElementById('sessionFab');
+  if (fab) fab.classList.add('fab-hidden');
+
   const dateStr = new Date().toLocaleDateString('en-US', {
     weekday: 'long', month: 'short', day: 'numeric'
   }).toUpperCase();
@@ -1068,18 +1013,24 @@ function openSession() {
   renderSessionList();
 }
 
-// closeSession() — hide the session overlay
 function closeSession() {
   const overlay = document.getElementById('sessionOverlay');
   if (!overlay) return;
   overlay.classList.remove('open');
   document.body.style.overflow = '';
+
+  // Restore FAB
+  const fab = document.getElementById('sessionFab');
+  if (fab) fab.classList.remove('fab-hidden');
+
   clearInterval(sessionTimerInterval);
   clearInterval(sessionCountdownInterval);
   sessionStartTime = null;
 }
 
 // ── CURRENCY DASHBOARD ──
+// v5.10: fuel gauge pity bars, terminal aesthetic,
+// data-game-label attribute on cards for CSS watermark
 function calcProjection(gid, balance, pityVal, onGuarantee) {
   const pull   = CONFIG.pulls[gid];
   const weekly = CONFIG.weeklyYields[gid];
@@ -1109,13 +1060,10 @@ function buildCurrencySection() {
   const pity = getPity();
   const guar = getGuar();
   const s    = wsFull();
-  let html = `<div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-dim);margin-bottom:14px;padding:10px 14px;background:var(--panel);border:1px solid var(--border);border-radius:6px;line-height:1.6">
-    Enter your current in-game balance for each tracker. Tap the number to edit.<br>
-    <span style="color:var(--text-mid)">Balance → pulls calculated automatically · Pity tracks pulls since last 5-star</span>
-  </div>`;
-  html += '<div class="currency-grid">';
+
+  let html = '<div class="currency-grid">';
   GAMES.forEach(g => {
-    const pull    = CONFIG.pulls[g.id];
+    const pull = CONFIG.pulls[g.id];
     if (!pull) return;
     const balance    = cur[g.id] || 0;
     const pulls      = Math.floor(balance / pull.perPull);
@@ -1126,12 +1074,21 @@ function buildCurrencySection() {
     const earnedSoFar = calcEarned(g.id, s);
     const proj       = calcProjection(g.id, balance, pityVal, onGuar);
 
+    // Pity gauge fill color — green safe zone, warn at soft pity, danger at hard
+    const pityPct = Math.min(100, Math.round(pityVal / pull.hardPity * 100));
+    const softPct = pull.softPity ? Math.round(pull.softPity / pull.hardPity * 100) : 70;
+    const pityColor = pityVal >= pull.hardPity - 5
+      ? 'var(--danger)'
+      : pull.softPity && pityVal >= pull.softPity
+        ? 'var(--warn)'
+        : `var(${g.accent})`;
+
     let projHTML = '';
     if (proj) {
       if (proj.alreadyEnough) {
         projHTML = `<div class="cc-proj cc-proj-ok">
           <span class="cc-proj-label">Guarantee</span>
-          <span class="cc-proj-val" style="color:var(--ok)">✓ Enough to guarantee</span>
+          <span class="cc-proj-val" style="color:var(--ok);font-family:'Orbitron',monospace;font-size:11px;font-weight:700">✓ Enough to guarantee</span>
         </div>`;
       } else {
         const weeksStr = proj.weeksToGoal === null ? '—'
@@ -1154,7 +1111,7 @@ function buildCurrencySection() {
         </label>
       </div>` : '';
 
-    html += `<div class="currency-card" style="--accent:var(${g.accent})">
+    html += `<div class="currency-card" style="--accent:var(${g.accent})" data-game-label="${g.short}">
       <div class="cc-header">
         <span class="cc-game">${g.short}</span>
         <span class="cc-currency">${pull.currency}</span>
@@ -1170,13 +1127,23 @@ function buildCurrencySection() {
       </div>
       <div class="cc-bar"><div class="cc-bar-fill" id="cbar-${g.id}" style="width:${barPct}%"></div></div>
       <div class="cc-pity-row">
-        <span class="cc-pity-label">Current pity</span>
-        <input class="cc-pity-input" type="number" min="0" max="${pull.hardPity}" value="${pityVal}"
-          onchange="updatePity('${g.id}',this.value)"
-          title="Pulls since last 5-star"/>
-        <span class="cc-pity-label">/ ${pull.hardPity} hard</span>
-        <span style="flex:1"></span>
-        <span class="cc-pity-label">${pull.softPity?'Soft @'+pull.softPity:'No soft pity'}</span>
+        <div class="cc-pity-top">
+          <span class="cc-pity-label">Pity</span>
+          <span style="display:flex;align-items:center;gap:4px">
+            <input class="cc-pity-input" type="number" min="0" max="${pull.hardPity}" value="${pityVal}"
+              onchange="updatePity('${g.id}',this.value)"
+              title="Pulls since last 5-star"/>
+            <span class="cc-pity-label">/ ${pull.hardPity}</span>
+          </span>
+        </div>
+        <div class="cc-pity-gauge">
+          <div class="cc-pity-fill" id="cpity-${g.id}" style="width:${pityPct}%;background:${pityColor}"></div>
+        </div>
+        <div class="cc-pity-labels">
+          <span class="cc-pity-lbl">0</span>
+          ${pull.softPity ? `<span class="cc-pity-lbl soft" style="margin-left:${softPct}%">soft</span>` : ''}
+          <span class="cc-pity-lbl hard" style="margin-left:auto">${pull.hardPity}</span>
+        </div>
       </div>
       ${guarToggle}
       ${projHTML}
@@ -1489,24 +1456,15 @@ function checkWeekRollover() {
     const a = ld(); const pd = a[prev] || {};
     let t = 0, d = 0;
     GAMES.forEach(g => {
-      // Weekly tasks — read from pd directly (wk-keyed, correct)
       g.weekly.forEach((_,i) => {
         t++;
         if (pd[g.id]?.['weekly']?.[i]) d++;
       });
-      // Daily tasks — must read from daily keys stored in `a`, not live dk().
-      // Previous week's dailies were stored under keys like 'D2026-05-14-hsr'.
-      // Scan all keys in `a` that match daily format for this game and sum completions.
-      // We count a game's dailies as completed if ANY daily key for that game
-      // within the previous week window has all tasks done.
-      // Simpler accurate approach: count total daily task completions across all
-      // daily keys for this game that fall within the prev week range.
       const dailyKeyPrefix = 'D';
       const gameId = g.id;
       Object.keys(a).forEach(key => {
         if (!key.startsWith(dailyKeyPrefix)) return;
         if (!key.endsWith('-' + gameId)) return;
-        // Check each daily task index
         g.daily.forEach((_,i) => {
           t++;
           if (a[key]?.[gameId]?.['daily']?.[i]) d++;
@@ -1839,8 +1797,6 @@ function render() {
   document.getElementById('weekLbl').textContent = `${f(d).toUpperCase()} — ${f(e).toUpperCase()}`;
   document.getElementById('footerDate').textContent = new Date().toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' }).toUpperCase();
   document.getElementById('gameGrid').innerHTML = GAMES.map(g => buildCard(g, s)).join('');
-  const zzzPassive = document.getElementById('zzzPassive');
-  if (zzzPassive) zzzPassive.innerHTML = '';
   try { document.getElementById('notesMain').value = localStorage.getItem(NK)  || ''; } catch {}
   try { document.getElementById('calNotes').value  = localStorage.getItem(CNK) || ''; } catch {}
   try { document.getElementById('quickNote').value = localStorage.getItem(QNK) || ''; } catch {}
