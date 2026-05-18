@@ -388,33 +388,18 @@ body::after {
 .game-card[data-game="hsr"]::before { animation: breatheHSR 5s ease-in-out infinite; animation-delay: 3.2s; }
 .game-card[data-game="zzz"]::before { animation: breatheZZZ 5s ease-in-out infinite; animation-delay: 4.4s; }
 
-/* diagonal corner cut — SVG border-image approach avoids clip-path clipping children */
-/* We fake the cut by placing a small square in the top-right corner that matches --bg */
-/* The glow line is a separate ::after on the card itself, not game-top */
-.game-card::after {
-  content: ''; position: absolute; top: 0; right: 0; z-index: 10; pointer-events: none;
-  width: 22px; height: 22px;
-  /* Triangle that matches the page background — creates the cut illusion */
-  background: linear-gradient(135deg, transparent 50%, #07080b 50%);
-}
+/* diagonal corner signature — glowing top-right corner accent, no masking trick */
+/* ::after removed — masking triangle was exposing itself against card gradient backgrounds */
 
-/* diagonal glow line — on .game-card itself, above the masking triangle */
-/* Uses outline technique: a thin glowing line along the cut edge */
-.game-card[data-game="czn"] .g-cut-glow,
-.game-card[data-game="ww"]  .g-cut-glow,
-.game-card[data-game="hsr"] .g-cut-glow,
-.game-card[data-game="zzz"] .g-cut-glow { display: block; }
-
-/* Inject glow via game-top overflow:visible + high z-index pseudo on game-grid wrapper */
-/* Actual solution: use an inset box-shadow on the card top-right corner area */
-/* The cleanest no-clip approach: gradient border on top edge fading to accent at right */
+/* corner accent — gradient top border, bright at right edge, fading left */
+/* No masking trick needed — border-image handles the gradient cleanly */
 .game-card {
   border-top: 1px solid rgba(255,255,255,0.06);
 }
-.game-card[data-game="czn"] { border-top-color: rgba(232,79,170,0.5); }
-.game-card[data-game="ww"]  { border-top-color: rgba(45,232,160,0.4); }
-.game-card[data-game="hsr"] { border-top-color: rgba(157,127,245,0.4); }
-.game-card[data-game="zzz"] { border-top-color: rgba(74,184,240,0.4); }
+.game-card[data-game="czn"] { border-image: linear-gradient(90deg, rgba(232,79,170,0.12) 0%, rgba(232,79,170,0.9) 100%) 1; }
+.game-card[data-game="ww"]  { border-image: linear-gradient(90deg, rgba(45,232,160,0.1)  0%, rgba(45,232,160,0.85)  100%) 1; }
+.game-card[data-game="hsr"] { border-image: linear-gradient(90deg, rgba(157,127,245,0.1) 0%, rgba(157,127,245,0.85) 100%) 1; }
+.game-card[data-game="zzz"] { border-image: linear-gradient(90deg, rgba(74,184,240,0.1)  0%, rgba(74,184,240,0.85)  100%) 1; }
 
 .game-card[data-game="czn"] { animation: breatheCZN-border 5s ease-in-out infinite; animation-delay: 0s; }
 .game-card[data-game="ww"]  { animation: breatheWW-border  5s ease-in-out infinite; animation-delay: 1.6s; }
@@ -422,24 +407,21 @@ body::after {
 .game-card[data-game="zzz"] { animation: breatheZZZ-border 5s ease-in-out infinite; animation-delay: 4.4s; }
 
 @keyframes breatheCZN-border {
-  0%,100% { border-top-color: rgba(232,79,170,0.35); box-shadow: inset 0 1px 0 rgba(232,79,170,0.2); }
-  50%      { border-top-color: rgba(232,79,170,0.9);  box-shadow: inset 0 1px 0 rgba(232,79,170,0.5), 0 -2px 12px rgba(232,79,170,0.3); }
+  0%,100% { box-shadow: inset 0 1px 0 rgba(232,79,170,0.15); }
+  50%      { box-shadow: inset 0 1px 0 rgba(232,79,170,0.45), 0 -2px 14px rgba(232,79,170,0.25); }
 }
 @keyframes breatheWW-border {
-  0%,100% { border-top-color: rgba(45,232,160,0.3);  box-shadow: inset 0 1px 0 rgba(45,232,160,0.15); }
-  50%      { border-top-color: rgba(45,232,160,0.85); box-shadow: inset 0 1px 0 rgba(45,232,160,0.45), 0 -2px 12px rgba(45,232,160,0.25); }
+  0%,100% { box-shadow: inset 0 1px 0 rgba(45,232,160,0.12); }
+  50%      { box-shadow: inset 0 1px 0 rgba(45,232,160,0.4),  0 -2px 14px rgba(45,232,160,0.2); }
 }
 @keyframes breatheHSR-border {
-  0%,100% { border-top-color: rgba(157,127,245,0.3); box-shadow: inset 0 1px 0 rgba(157,127,245,0.15); }
-  50%      { border-top-color: rgba(157,127,245,0.85);box-shadow: inset 0 1px 0 rgba(157,127,245,0.45), 0 -2px 12px rgba(157,127,245,0.25); }
+  0%,100% { box-shadow: inset 0 1px 0 rgba(157,127,245,0.12); }
+  50%      { box-shadow: inset 0 1px 0 rgba(157,127,245,0.4),  0 -2px 14px rgba(157,127,245,0.2); }
 }
 @keyframes breatheZZZ-border {
-  0%,100% { border-top-color: rgba(74,184,240,0.3);  box-shadow: inset 0 1px 0 rgba(74,184,240,0.15); }
-  50%      { border-top-color: rgba(74,184,240,0.85); box-shadow: inset 0 1px 0 rgba(74,184,240,0.45), 0 -2px 12px rgba(74,184,240,0.25); }
+  0%,100% { box-shadow: inset 0 1px 0 rgba(74,184,240,0.12); }
+  50%      { box-shadow: inset 0 1px 0 rgba(74,184,240,0.4),   0 -2px 14px rgba(74,184,240,0.2); }
 }
-
-/* game-top overflow must be visible so glow line isn't cropped */
-.game-top { overflow: visible; }
 
 /* per-game background gradient tint */
 .game-card[data-game="czn"] { background: linear-gradient(135deg, rgba(232,79,170,0.06) 0%, rgba(12,13,18,0.95) 40%); }
