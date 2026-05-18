@@ -2,17 +2,13 @@
 // All application logic, state management, Notion sync
 // GitHub: Emereldsimu-arch/czn-ops-theory
 // Changes from v5.8:
-//   - sessionToggleDaily() fixed: was toggling (could invert), now always
-//     writes true — session mode only surfaces undone tasks so it's always
-//     a mark-done action. Prevents the "checking removes the check" bug.
-//   - sessionToggleDaily() now updates matching .trow on the main game card
-//     so the checkbox visually reflects done state without a full re-render.
-//   - sessionToggleCycle() fixed: same class of bug — was using !getCy() toggle,
-//     now always writes cleared=true. Session mode only surfaces uncleared cycles.
-//   - checkWeekRollover() fixed: daily task completions now read from stored
-//     daily keys in localStorage directly instead of routing through getv()
-//     which reads live dk() keys — previous fix was counting current-week
-//     dailies toward the previous week's perfect week score.
+//   - sessionToggleDaily() fixed: always writes true, updates main card trow DOM
+//   - sessionToggleCycle() fixed: always writes cleared, never toggles
+//   - checkWeekRollover() fixed: reads prev-week daily keys from storage directly
+//   - togT(), gamePct(), gPct(), totalDone(), allMats() fixed: weekly task state
+//     now reads using per-game wk(gid) key instead of wsFull() which used the
+//     Monday-anchored general key — was causing CZN weeklies to always read as
+//     0 (stored under Sunday-anchored key) and percentage to never update on tap
 //   - Version bump to 5.9
 // ═══════════════════════════════════════════════════════════
 
@@ -165,10 +161,12 @@ function getStreak() { try { return JSON.parse(localStorage.getItem(STRK) || '{"
 
 // ── COMPUTED HELPERS ──
 function totalDone(s) {
+  const a = ld();
   let d = 0;
   GAMES.forEach(g => {
-    g.daily.forEach((_,i)  => { if (getv(s, g.id, 'daily',  i)) d++; });
-    g.weekly.forEach((_,i) => { if (getv(s, g.id, 'weekly', i)) d++; });
+    const wKey = wk(g.id);
+    g.daily.forEach((_,i)  => { if (getv(s, g.id, 'daily', i)) d++; });
+    g.weekly.forEach((_,i) => { if (!!(a[wKey]?.[g.id]?.weekly?.[i])) d++; });
   });
   return d;
 }
@@ -188,31 +186,44 @@ function zzzEndgameDone() {
 }
 
 function allMats(s) {
+  const a = ld();
   let t = 0, d = 0;
   GAMES.forEach(g => {
+    const wKey = wk(g.id);
     [...g.daily, ...g.weekly].forEach((tk, i) => {
       if (tk.tag === 'mat') {
         t++;
-        const type = i < g.daily.length ? 'daily' : 'weekly';
-        const idx  = i < g.daily.length ? i : i - g.daily.length;
-        if (getv(s, g.id, type, idx)) d++;
+        const isDaily = i < g.daily.length;
+        const idx     = isDaily ? i : i - g.daily.length;
+        if (isDaily) {
+          if (getv(s, g.id, 'daily', idx)) d++;
+        } else {
+          if (!!(a[wKey]?.[g.id]?.weekly?.[idx])) d++;
+        }
       }
     });
   });
   return t > 0 && d >= t;
 }
 function gPct(s) {
+  // s is ignored for this calculation — we read directly from storage
+  // using per-game week keys so CZN weeklies use the Sunday-anchored key.
+  const a = ld();
   let t = 0, d = 0;
   GAMES.forEach(g => {
-    g.daily.forEach((_,i)  => { t++; if (getv(s,g.id,'daily',i))  d++; });
-    g.weekly.forEach((_,i) => { t++; if (getv(s,g.id,'weekly',i)) d++; });
+    const wKey = wk(g.id);
+    g.daily.forEach((_,i)  => { t++; if (getv(s,g.id,'daily',i)) d++; });
+    g.weekly.forEach((_,i) => { t++; if (!!(a[wKey]?.[g.id]?.weekly?.[i])) d++; });
   });
   return t > 0 ? Math.round(d / t * 100) : 0;
 }
 function gamePct(g, s) {
+  // Read weekly state directly from storage using correct per-game week key.
+  const a = ld();
+  const wKey = wk(g.id);
   let t = g.daily.length + g.weekly.length, d = 0;
-  g.daily.forEach((_,i)  => { if (getv(s,g.id,'daily',i))  d++; });
-  g.weekly.forEach((_,i) => { if (getv(s,g.id,'weekly',i)) d++; });
+  g.daily.forEach((_,i)  => { if (getv(s,g.id,'daily',i)) d++; });
+  g.weekly.forEach((_,i) => { if (!!(a[wKey]?.[g.id]?.weekly?.[i])) d++; });
   return t > 0 ? Math.round(d / t * 100) : 0;
 }
 function cyclesDone() {
@@ -612,16 +623,35 @@ function togT(gid, type, idx, el, ev) {
   setv(gid, type, idx, !cur);
   el.classList.toggle('done');
 
-  const g    = GAMES.find(x => x.id === gid);
-  const s2   = wsFull();
+  const g  = GAMES.find(x => x.id === gid);
+  // Use game-specific week state for percentage calculation.
+  // wsFull() uses wk() without gameId (Monday-anchored) which is wrong for CZN
+  // whose weeklies are stored under wk('czn') (Sunday-anchored).
+  // Read state fresh from storage using the correct per-game key.
+  const a   = ld();
+  const wKey = wk(gid);
+  const dKey = dk(gid);
+  const s2  = {
+    [gid]: {
+      weekly: a[wKey]?.[gid]?.weekly || {},
+    }
+  };
+  // Daily reads always go to dk() directly via getv(), so passing any s2 is fine for daily
   const pct  = gamePct(g, s2);
-  const done = g.daily.filter((_,i) => getv(s2,g.id,'daily',i)).length +
-               g.weekly.filter((_,i) => getv(s2,g.id,'weekly',i)).length;
+  const dailyDone  = g.daily.filter((_,i)  => getv(s2, g.id, 'daily',  i)).length;
+  const weeklyDone = g.weekly.filter((_,i) => {
+    return !!(a[wKey]?.[gid]?.weekly?.[i]);
+  }).length;
+  const done = dailyDone + weeklyDone;
+
   const card = document.getElementById('card-' + gid);
   if (card) {
     const pn = card.querySelector('.g-pct-num'); if (pn) pn.textContent = pct + '%';
     const ps = card.querySelector('.g-pct-sub'); if (ps) ps.textContent = done + '/' + (g.daily.length + g.weekly.length);
     const pf = card.querySelector('.pfill');     if (pf) pf.style.width = pct + '%';
+    // Update weekly section count
+    const wSec = card.querySelectorAll('.tsec .tcnt');
+    if (wSec.length >= 3) wSec[2].textContent = weeklyDone + '/' + g.weekly.length;
     if (pct >= 100) card.classList.add('done-card');
     else            card.classList.remove('done-card');
   }
