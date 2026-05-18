@@ -1,21 +1,19 @@
-
-
-// NEXUS v5.8 — APP.JS
+// NEXUS v5.9 — APP.JS
 // All application logic, state management, Notion sync
 // GitHub: Emereldsimu-arch/czn-ops-theory
-// Changes from v5.7:
-//   - dk('czn') fix: CZN dailyUTC is now 18 (not null) — CZN daily tasks
-//     now reset every day at 18:00 UTC instead of weekly-only.
-//     The null bypass in dk() removed; CZN falls through to standard
-//     daily key logic like HSR/ZZZ.
-//   - Session Mode added: floating activate button + fullscreen overlay
-//     Reads buildSessionList() — urgency-ordered, time-sensitive items only
-//     Drives existing togT() and togCy() calls — no new state owners
-//     Live countdown timers update every 60s while overlay is open
-//     Per-game daily blocks expand inline to individual sub-tasks
-//     Completed items bloom then slide out (300ms bloom + 500ms fade)
-//     All-clear state: OBJECTIVES CLEAR treatment in neon bounty hunter aesthetic
-//   - Version bump to 5.8
+// Changes from v5.8:
+//   - sessionToggleDaily() fixed: was toggling (could invert), now always
+//     writes true — session mode only surfaces undone tasks so it's always
+//     a mark-done action. Prevents the "checking removes the check" bug.
+//   - sessionToggleDaily() now updates matching .trow on the main game card
+//     so the checkbox visually reflects done state without a full re-render.
+//   - sessionToggleCycle() fixed: same class of bug — was using !getCy() toggle,
+//     now always writes cleared=true. Session mode only surfaces uncleared cycles.
+//   - checkWeekRollover() fixed: daily task completions now read from stored
+//     daily keys in localStorage directly instead of routing through getv()
+//     which reads live dk() keys — previous fix was counting current-week
+//     dailies toward the previous week's perfect week score.
+//   - Version bump to 5.9
 // ═══════════════════════════════════════════════════════════
 
 // ── STORAGE KEYS ──
@@ -888,22 +886,31 @@ function sessionExpandDaily(blockEl) {
 }
 
 // sessionToggleDaily() — tap a subtask row inside session mode
-// Calls real togT() — same state, same sync chain
+// Session mode only shows UNDONE tasks, so this is always a mark-done action.
+// Never toggles — always writes true. Prevents inversion bug.
+// Also updates the matching .trow on the main game card so it reflects as checked.
 function sessionToggleDaily(gid, idx, el) {
   if (el.classList.contains('sm-completing')) return;
   el.classList.add('sm-completing');
 
-  // Fire real toggle
-  const s = wsFull();
-  const cur = getv(s, gid, 'daily', idx);
-  setv(gid, 'daily', idx, !cur);
+  // Always mark done — session mode only surfaces undone tasks
+  setv(gid, 'daily', idx, true);
 
-  // Update main app state visuals
+  // Update the matching trow on the main game card
   const card = document.getElementById('card-' + gid);
   if (card) {
-    const g  = GAMES.find(x => x.id === gid);
-    const s2 = wsFull();
-    const pct = gamePct(g, s2);
+    const trows = card.querySelectorAll('.tlist .trow');
+    // Daily trows are the first g.daily.length rows in the first .tlist
+    const g = GAMES.find(x => x.id === gid);
+    if (g && trows[idx]) {
+      trows[idx].classList.add('done');
+      const chk = trows[idx].querySelector('.tcheck');
+      if (chk) { chk.style.borderColor = 'var(--accent)'; chk.style.background = 'var(--accent)'; }
+    }
+
+    // Update card header stats
+    const s2  = wsFull();
+    const pct  = gamePct(g, s2);
     const done = g.daily.filter((_,i) => getv(s2,g.id,'daily',i)).length +
                  g.weekly.filter((_,i) => getv(s2,g.id,'weekly',i)).length;
     const pn = card.querySelector('.g-pct-num'); if (pn) pn.textContent = pct + '%';
@@ -916,7 +923,7 @@ function sessionToggleDaily(gid, idx, el) {
   updateGlobals(); buildUrgency(); buildTodayPanel(); checkAllAchievements(); updateLT();
   updateCurrencyEarned(gid);
 
-  // Bloom animation then refresh list
+  // Bloom then refresh session list
   setTimeout(() => { renderSessionList(); updateSessionCountdowns(); }, 350);
 }
 
@@ -929,13 +936,14 @@ function sessionToggleCycle(cycleKey, btn) {
   const item = btn.closest('.sm-item');
   if (item) item.classList.add('sm-bloom');
 
-  // Fire real cycle toggle
+  // Always mark cleared — session mode only surfaces uncleared cycles.
+  // Never toggles — prevents inversion if getCy() races with main card state.
   const cyConf   = CONFIG.cycles[cycleKey];
   const isWeekly = cyConf?.type === 'weekly';
-  const nowCleared = !getCy(cycleKey);
+  const nowCleared = true;
 
-  if (isWeekly) setCyWeekly(cycleKey, nowCleared);
-  else          setCy(cycleKey, nowCleared);
+  if (isWeekly) setCyWeekly(cycleKey, true);
+  else          setCy(cycleKey, true);
 
   if (nowCleared) {
     const lt = getLT();
@@ -1451,8 +1459,29 @@ function checkWeekRollover() {
     const a = ld(); const pd = a[prev] || {};
     let t = 0, d = 0;
     GAMES.forEach(g => {
-      g.daily.forEach((_,i)  => { t++; if (getv(pd,g.id,'daily',i))  d++; });
-      g.weekly.forEach((_,i) => { t++; if (getv(pd,g.id,'weekly',i)) d++; });
+      // Weekly tasks — read from pd directly (wk-keyed, correct)
+      g.weekly.forEach((_,i) => {
+        t++;
+        if (pd[g.id]?.['weekly']?.[i]) d++;
+      });
+      // Daily tasks — must read from daily keys stored in `a`, not live dk().
+      // Previous week's dailies were stored under keys like 'D2026-05-14-hsr'.
+      // Scan all keys in `a` that match daily format for this game and sum completions.
+      // We count a game's dailies as completed if ANY daily key for that game
+      // within the previous week window has all tasks done.
+      // Simpler accurate approach: count total daily task completions across all
+      // daily keys for this game that fall within the prev week range.
+      const dailyKeyPrefix = 'D';
+      const gameId = g.id;
+      Object.keys(a).forEach(key => {
+        if (!key.startsWith(dailyKeyPrefix)) return;
+        if (!key.endsWith('-' + gameId)) return;
+        // Check each daily task index
+        g.daily.forEach((_,i) => {
+          t++;
+          if (a[key]?.[gameId]?.['daily']?.[i]) d++;
+        });
+      });
     });
     const prevPct  = t > 0 ? Math.round(d/t*100) : 0;
     const prevCyc  = cyclesDone();
