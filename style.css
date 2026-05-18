@@ -1,17 +1,19 @@
+
 /* ═══════════════════════════════════════════════════════════
-   NEXUS v5.9 — STYLE
+   NEXUS v5.10 — STYLE
    Neon bounty hunter cockpit aesthetic
    Fonts: Orbitron / Syne / JetBrains Mono
-   Changes from v5.6:
-     - Full visual redesign: living starfield background (canvas in index.html)
-     - Warm amber atmospheric glow from top of viewport
-     - Per-game card geometry: diagonal corner cut + glowing accent edge
-     - Per-game card textures at visible opacity
-     - Breathing glow keyframes on all accent elements
-     - Session mode: beveled container, scan lines, cockpit atmosphere
-     - Progress bars, percentage numbers, urgency dots all breathe
-     - Offset animation delays so nothing pulses in sync
-     - Planet/moon silhouette + ship drift handled in index.html canvas
+   Changes from v5.9:
+     - Session mode: cockpit atmosphere — dual ambient glow,
+       corner reticles, side rails + tick marks, geometric
+       targeting reticle watermark, power-on flicker, FAB hide
+     - Session header: extending fade lines from title text
+     - Session items: data-row scan artifact treatment
+     - Game card textures: pushed to visible opacity with
+       game-specific references (CZN tactical grid, WW resonance
+       wave interference, HSR starfield + rail, ZZZ hollow grid)
+     - Card accent bar: inner glow bleeds into card on hover
+     - Currency: terminal/funds aesthetic, fuel gauge pity bars
    ═══════════════════════════════════════════════════════════ */
 
 @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Syne:wght@400;500;600;700&family=JetBrains+Mono:wght@300;400;500&display=swap');
@@ -64,8 +66,6 @@ body {
 }
 
 /* ── LIVING BACKGROUND ── */
-/* Starfield canvas is injected by index.html as position:fixed z-index:0 */
-/* Atmospheric glows */
 body::before {
   content: '';
   position: fixed; inset: 0; z-index: 0; pointer-events: none;
@@ -76,7 +76,6 @@ body::before {
     radial-gradient(ellipse 40%  25% at 80% 95%,  rgba(157,127,245,0.04) 0%, transparent 50%);
 }
 
-/* Subtle grid */
 body::after {
   content: '';
   position: fixed; inset: 0; z-index: 0; pointer-events: none;
@@ -87,7 +86,6 @@ body::after {
   mask-image: radial-gradient(ellipse 100% 70% at 50% 0%, black 20%, transparent 80%);
 }
 
-/* scan line */
 @keyframes scandown { 0% { top: -2px; } 100% { top: 100vh; } }
 .scanline {
   position: fixed; left: 0; right: 0; height: 1px;
@@ -327,9 +325,7 @@ body::after {
   background: var(--danger);
   animation: breatheRed 2.5s ease-in-out infinite;
 }
-.urg-card {
-  animation: breatheUrgBorder 2.5s ease-in-out infinite;
-}
+.urg-card { animation: breatheUrgBorder 2.5s ease-in-out infinite; }
 @keyframes breatheUrgBorder {
   0%,100% { border-color: rgba(255,82,82,0.15); }
   50%      { border-color: rgba(255,82,82,0.45); }
@@ -339,10 +335,7 @@ body::after {
   0%,100% { border-color: rgba(255,160,40,0.15); }
   50%      { border-color: rgba(255,160,40,0.45); }
 }
-.urg-card.warn {
-  background: rgba(255,160,40,0.04);
-  border-color: rgba(255,160,40,0.2);
-}
+.urg-card.warn { background: rgba(255,160,40,0.04); border-color: rgba(255,160,40,0.2); }
 .urg-card.warn::before { background: var(--warn); animation: breatheAmber 3s ease-in-out infinite; }
 .urg-card.clear { border-color: rgba(74,222,128,0.18); background: rgba(74,222,128,0.03); opacity: .5; }
 .urg-card.clear::before { background: var(--ok); animation: none; }
@@ -351,7 +344,7 @@ body::after {
   background: var(--danger); flex-shrink: 0;
   animation: breatheRed 2.5s ease-in-out infinite;
 }
-.urg-card.warn .udot { background: var(--warn); animation: breatheAmber 3s ease-in-out infinite; box-shadow: none; }
+.urg-card.warn  .udot { background: var(--warn); animation: breatheAmber 3s ease-in-out infinite; box-shadow: none; }
 .urg-card.clear .udot { background: var(--ok); animation: none; }
 .ubody { flex: 1; min-width: 0; }
 .ugame { font-family: 'Orbitron', monospace; font-size: 7px; letter-spacing: 1.5px; color: var(--danger); text-transform: uppercase; margin-bottom: 1px; }
@@ -378,24 +371,20 @@ body::after {
 .game-card.collapsed.done-card { border-color: rgba(74,222,128,0.45); }
 .game-card.collapsed .task-body { display: none; }
 
-/* glowing left accent edge — breathes per game, offset delays */
+/* glowing left accent edge */
 .game-card::before {
   content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
   background: var(--accent); z-index: 3; pointer-events: none;
+  transition: width .3s ease, box-shadow .3s ease;
 }
+.game-card:hover::before { width: 4px; }
 .game-card[data-game="czn"]::before { animation: breatheCZN 5s ease-in-out infinite; animation-delay: 0s; }
 .game-card[data-game="ww"]::before  { animation: breatheWW  5s ease-in-out infinite; animation-delay: 1.6s; }
 .game-card[data-game="hsr"]::before { animation: breatheHSR 5s ease-in-out infinite; animation-delay: 3.2s; }
 .game-card[data-game="zzz"]::before { animation: breatheZZZ 5s ease-in-out infinite; animation-delay: 4.4s; }
 
-/* diagonal corner signature — glowing top-right corner accent, no masking trick */
-/* ::after removed — masking triangle was exposing itself against card gradient backgrounds */
-
-/* corner accent — gradient top border, bright at right edge, fading left */
-/* No masking trick needed — border-image handles the gradient cleanly */
-.game-card {
-  border-top: 1px solid rgba(255,255,255,0.06);
-}
+/* gradient top border */
+.game-card { border-top: 1px solid rgba(255,255,255,0.06); }
 .game-card[data-game="czn"] { border-image: linear-gradient(90deg, rgba(232,79,170,0.12) 0%, rgba(232,79,170,0.9) 100%) 1; }
 .game-card[data-game="ww"]  { border-image: linear-gradient(90deg, rgba(45,232,160,0.1)  0%, rgba(45,232,160,0.85)  100%) 1; }
 .game-card[data-game="hsr"] { border-image: linear-gradient(90deg, rgba(157,127,245,0.1) 0%, rgba(157,127,245,0.85) 100%) 1; }
@@ -424,28 +413,113 @@ body::after {
 }
 
 /* per-game background gradient tint */
-.game-card[data-game="czn"] { background: linear-gradient(135deg, rgba(232,79,170,0.06) 0%, rgba(12,13,18,0.95) 40%); }
-.game-card[data-game="ww"]  { background: linear-gradient(135deg, rgba(45,232,160,0.05) 0%, rgba(12,13,18,0.95) 40%); }
-.game-card[data-game="hsr"] { background: linear-gradient(135deg, rgba(157,127,245,0.05) 0%, rgba(12,13,18,0.95) 40%); }
-.game-card[data-game="zzz"] { background: linear-gradient(135deg, rgba(74,184,240,0.05) 0%, rgba(12,13,18,0.95) 40%); }
+.game-card[data-game="czn"] { background: linear-gradient(135deg, rgba(232,79,170,0.07) 0%, rgba(12,13,18,0.97) 45%); }
+.game-card[data-game="ww"]  { background: linear-gradient(135deg, rgba(45,232,160,0.06) 0%, rgba(12,13,18,0.97) 45%); }
+.game-card[data-game="hsr"] { background: linear-gradient(135deg, rgba(157,127,245,0.06) 0%, rgba(12,13,18,0.97) 45%); }
+.game-card[data-game="zzz"] { background: linear-gradient(135deg, rgba(74,184,240,0.06) 0%, rgba(12,13,18,0.97) 45%); }
 
-/* per-game card textures */
+/* ── PER-GAME CARD TEXTURES — game-specific references ──
+   All textures live on .game-top::after so they stay inside
+   the header area and don't compete with task rows below.
+   Opacity pushed to visible range (12-15%) from previous 4%.
+   ──────────────────────────────────────────────────────── */
+
+/* CZN — Tactical combat grid: diagonal crosshatch like a
+   weapons targeting overlay. Two diagonal directions create
+   a mesh. Brighter at intersections gives it depth. */
 .game-card[data-game="czn"] .game-top::after {
   content: ''; position: absolute; inset: 0; pointer-events: none;
-  background: repeating-linear-gradient(-45deg, rgba(232,79,170,0.04), rgba(232,79,170,0.04) 1px, transparent 1px, transparent 14px);
+  background:
+    repeating-linear-gradient(
+      -45deg,
+      rgba(232,79,170,0.08), rgba(232,79,170,0.08) 1px,
+      transparent 1px, transparent 12px
+    ),
+    repeating-linear-gradient(
+      45deg,
+      rgba(232,79,170,0.05), rgba(232,79,170,0.05) 1px,
+      transparent 1px, transparent 12px
+    );
 }
+
+/* WW — Resonance wave interference: two sine-wave-like
+   horizontal bands slightly out of phase, creating the
+   moiré/interference pattern that references WW's sound
+   and resonance identity. */
 .game-card[data-game="ww"] .game-top::after {
   content: ''; position: absolute; inset: 0; pointer-events: none;
-  background: repeating-linear-gradient(90deg, transparent, transparent 10px, rgba(45,232,160,0.04) 10px, rgba(45,232,160,0.04) 11px);
-  mask-image: repeating-linear-gradient(0deg, black, black 3px, transparent 3px, transparent 8px);
+  background:
+    repeating-linear-gradient(
+      180deg,
+      transparent 0px,
+      transparent 6px,
+      rgba(45,232,160,0.07) 6px,
+      rgba(45,232,160,0.07) 7px,
+      transparent 7px,
+      transparent 11px,
+      rgba(45,232,160,0.04) 11px,
+      rgba(45,232,160,0.04) 12px
+    ),
+    repeating-linear-gradient(
+      176deg,
+      transparent 0px,
+      transparent 8px,
+      rgba(45,232,160,0.04) 8px,
+      rgba(45,232,160,0.04) 9px
+    );
 }
+
+/* HSR — Starfield + rail: sparse dots at varying opacity
+   simulate looking out from the Express, with a faint
+   diagonal rail line cutting through — the tracks. */
 .game-card[data-game="hsr"] .game-top::after {
   content: ''; position: absolute; inset: 0; pointer-events: none;
-  background: repeating-linear-gradient(0deg, transparent, transparent 8px, rgba(157,127,245,0.04) 8px, rgba(157,127,245,0.04) 9px, transparent 9px, transparent 14px, rgba(157,127,245,0.04) 14px, rgba(157,127,245,0.04) 15px);
+  background:
+    /* Rail line — faint diagonal suggesting the Express tracks */
+    linear-gradient(
+      -30deg,
+      transparent 48%,
+      rgba(157,127,245,0.12) 49%,
+      rgba(157,127,245,0.12) 50%,
+      transparent 51%
+    ),
+    /* Star field dots — two sizes, staggered */
+    radial-gradient(circle at 15% 25%, rgba(157,127,245,0.25) 1px, transparent 1px),
+    radial-gradient(circle at 72% 15%, rgba(157,127,245,0.18) 1px, transparent 1px),
+    radial-gradient(circle at 88% 60%, rgba(157,127,245,0.22) 1px, transparent 1px),
+    radial-gradient(circle at 40% 80%, rgba(157,127,245,0.15) 1px, transparent 1px),
+    radial-gradient(circle at 60% 40%, rgba(157,127,245,0.20) 1.5px, transparent 1.5px),
+    radial-gradient(circle at 25% 65%, rgba(157,127,245,0.12) 1px, transparent 1px),
+    radial-gradient(circle at 55% 70%, rgba(157,127,245,0.18) 1px, transparent 1px),
+    radial-gradient(circle at 80% 85%, rgba(157,127,245,0.14) 1px, transparent 1px);
 }
+
+/* ZZZ — Hollow zone grid: the chunky irregular pixel grid
+   from ZZZ's hollow zone UI — thick horizontal bands with
+   vertical interruptions, like a TV signal breaking up. */
 .game-card[data-game="zzz"] .game-top::after {
   content: ''; position: absolute; inset: 0; pointer-events: none;
-  background: repeating-linear-gradient(180deg, transparent, transparent 4px, rgba(74,184,240,0.05) 4px, rgba(74,184,240,0.05) 5px);
+  background:
+    repeating-linear-gradient(
+      180deg,
+      transparent 0px,
+      transparent 3px,
+      rgba(74,184,240,0.08) 3px,
+      rgba(74,184,240,0.08) 4px,
+      transparent 4px,
+      transparent 16px,
+      rgba(74,184,240,0.05) 16px,
+      rgba(74,184,240,0.05) 17px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      transparent 0px,
+      transparent 18px,
+      rgba(74,184,240,0.04) 18px,
+      rgba(74,184,240,0.04) 19px,
+      transparent 19px,
+      transparent 40px
+    );
 }
 
 .game-top { padding: 12px 14px 10px 17px; position: relative; overflow: hidden; cursor: pointer; user-select: none; }
@@ -554,19 +628,59 @@ body::after {
 .notes-ta:focus { border-color: var(--border2); }
 .notes-ta::placeholder { color: var(--text-dim); }
 
-/* ── CURRENCY DASHBOARD ── */
+/* ── CURRENCY DASHBOARD ──
+   v5.10: Terminal/funds aesthetic. Pity bars styled as fuel
+   gauges with segment markers. Amber dominant treatment
+   throughout. Header area has a "TREASURY" terminal feel.
+   ──────────────────────────────────────────────────────── */
 .currency-section { margin-bottom: 16px; }
+
+/* Terminal header strip above the grid */
+.currency-terminal-hdr {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 14px; margin-bottom: 12px;
+  background: rgba(255,160,40,0.04);
+  border: 1px solid rgba(255,160,40,0.12);
+  border-left: 3px solid rgba(255,160,40,0.5);
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 0 100%);
+}
+.currency-terminal-label {
+  font-family: 'Orbitron', monospace; font-size: 9px;
+  letter-spacing: 2px; color: rgba(255,160,40,0.7);
+  text-transform: uppercase;
+}
+.currency-terminal-sub {
+  font-family: 'JetBrains Mono', monospace; font-size: 9px;
+  color: var(--text-dim); margin-left: auto;
+}
+
 .currency-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
 .currency-card {
   background: var(--panel); border: 1px solid var(--border);
   border-radius: 0; padding: 14px 15px;
   position: relative; overflow: hidden;
   clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
+  transition: border-color .2s;
 }
+.currency-card:hover { border-color: var(--border2); }
+
+/* Accent bar */
 .currency-card::before {
   content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 2px;
-  background: var(--accent); opacity: 0.6;
+  background: var(--accent); opacity: 0.7;
 }
+
+/* Corner data watermark — faint game short name in background */
+.currency-card::after {
+  content: attr(data-game-label);
+  position: absolute; bottom: 8px; right: 12px;
+  font-family: 'Orbitron', monospace; font-size: 28px;
+  font-weight: 900; letter-spacing: 2px;
+  color: var(--accent); opacity: 0.04;
+  pointer-events: none; user-select: none;
+  line-height: 1;
+}
+
 .cc-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
 .cc-game { font-family: 'Orbitron', monospace; font-size: 9px; letter-spacing: 1.5px; color: var(--accent); text-transform: uppercase; }
 .cc-currency { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--text-dim); }
@@ -575,12 +689,54 @@ body::after {
 .cc-input:focus { color: var(--accent); }
 .cc-of { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--text-dim); }
 .cc-pulls { font-family: 'Orbitron', monospace; font-size: 13px; font-weight: 700; color: var(--accent); }
-.cc-bar { height: 3px; background: rgba(255,255,255,0.06); border-radius: 1px; overflow: hidden; margin-bottom: 8px; }
+
+/* Balance bar — standard fill */
+.cc-bar { height: 3px; background: rgba(255,255,255,0.06); border-radius: 1px; overflow: hidden; margin-bottom: 10px; }
 .cc-bar-fill { height: 100%; border-radius: 1px; transition: width .4s ease; background: var(--accent); }
-.cc-pity-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+
+/* Pity gauge — fuel gauge style with segment markers */
+.cc-pity-row { margin-bottom: 8px; }
+.cc-pity-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
 .cc-pity-label { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--text-dim); }
 .cc-pity-input { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--text-bright); background: transparent; border: none; outline: none; width: 30px; text-align: right; }
 .cc-pity-input:focus { color: var(--accent); }
+
+/* Fuel gauge track with segment notches */
+.cc-pity-gauge {
+  height: 8px; background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 2px; overflow: hidden; position: relative;
+}
+.cc-pity-fill {
+  height: 100%; border-radius: 1px;
+  transition: width .4s ease, background .4s ease;
+  position: relative;
+}
+/* Segment notches overlay — drawn as repeating gradient */
+.cc-pity-gauge::after {
+  content: '';
+  position: absolute; inset: 0;
+  /* Vertical tick marks every 10% */
+  background: repeating-linear-gradient(
+    90deg,
+    transparent 0%,
+    transparent calc(10% - 1px),
+    rgba(0,0,0,0.4) calc(10% - 1px),
+    rgba(0,0,0,0.4) 10%
+  );
+  pointer-events: none; z-index: 2;
+}
+.cc-pity-labels {
+  display: flex; justify-content: space-between;
+  margin-top: 3px;
+}
+.cc-pity-lbl {
+  font-family: 'JetBrains Mono', monospace; font-size: 7px;
+  color: var(--text-dim); opacity: 0.6;
+}
+.cc-pity-lbl.soft { color: var(--warn); opacity: 0.8; }
+.cc-pity-lbl.hard { color: var(--danger); opacity: 0.8; }
+
 .cc-earned { display: flex; align-items: center; gap: 6px; padding: 5px 8px; background: rgba(255,255,255,.02); border: 1px solid var(--border); border-radius: 3px; }
 .cc-earned-label { font-family: 'JetBrains Mono', monospace; font-size: 8px; color: var(--text-dim); flex: 1; }
 .cc-earned-val { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--ok); }
@@ -727,7 +883,271 @@ body::after {
 .ach-tier-badge { font-family: 'Orbitron', monospace; font-size: 7px; padding: 1px 4px; border-radius: 2px; letter-spacing: .5px; }
 .ach-game-badge { font-family: 'JetBrains Mono', monospace; font-size: 7px; padding: 1px 4px; border-radius: 2px; color: var(--text-dim); background: var(--bg3); }
 
-/* ── SESSION MODE ITEM STYLES (complement index.html inline styles) ── */
+/* ── SESSION MODE OVERLAY ──
+   v5.10: Full cockpit atmosphere redesign.
+   Dual ambient glow (amber top command light + HSR purple
+   instrument wash from bottom). Geometric targeting reticle
+   watermark. Corner reticles, side rails, tick marks.
+   Power-on flicker on open. FAB hides when open.
+   ──────────────────────────────────────────────────────── */
+#sessionOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  transform: translateY(100%);
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  background:
+    radial-gradient(ellipse 90% 45% at 50% -2%,  rgba(255,160,40,0.10)  0%, transparent 65%),
+    radial-gradient(ellipse 70% 40% at 50% 102%, rgba(157,127,245,0.07) 0%, transparent 60%),
+    radial-gradient(ellipse 40% 30% at 8%  50%,  rgba(232,79,170,0.04)  0%, transparent 55%),
+    #08090c;
+}
+#sessionOverlay.open {
+  transform: translateY(0);
+}
+
+/* Power-on flicker */
+@keyframes smPowerOn {
+  0%   { opacity: 0; }
+  8%   { opacity: 0.9; }
+  12%  { opacity: 0.2; }
+  18%  { opacity: 1; }
+  22%  { opacity: 0.65; }
+  28%  { opacity: 1; }
+  100% { opacity: 1; }
+}
+#sessionOverlay.sm-poweron {
+  animation: smPowerOn 0.45s ease-out forwards;
+}
+
+/* Geometric background — concentric targeting reticle rings */
+#sessionOverlay::before {
+  content: '';
+  position: fixed;
+  top: 50%; left: 50%;
+  width: 520px; height: 520px;
+  transform: translate(-50%, -55%);
+  pointer-events: none; z-index: 0;
+  background:
+    radial-gradient(circle at 50% 50%, transparent 58px,  rgba(255,160,40,0.028) 59px,  transparent 60px),
+    radial-gradient(circle at 50% 50%, transparent 118px, rgba(255,160,40,0.022) 119px, transparent 120px),
+    radial-gradient(circle at 50% 50%, transparent 188px, rgba(255,160,40,0.016) 189px, transparent 190px),
+    radial-gradient(circle at 50% 50%, transparent 268px, rgba(255,160,40,0.010) 269px, transparent 270px);
+}
+
+/* Crosshair lines through reticle */
+#sessionOverlay::after {
+  content: '';
+  position: fixed;
+  top: 50%; left: 50%;
+  width: 340px; height: 340px;
+  transform: translate(-50%, -65%);
+  pointer-events: none; z-index: 0;
+  background:
+    linear-gradient(90deg,
+      transparent calc(50% - 0.5px),
+      rgba(255,160,40,0.045) calc(50% - 0.5px),
+      rgba(255,160,40,0.045) calc(50% + 0.5px),
+      transparent calc(50% + 0.5px)
+    ),
+    linear-gradient(180deg,
+      transparent calc(50% - 0.5px),
+      rgba(255,160,40,0.045) calc(50% - 0.5px),
+      rgba(255,160,40,0.045) calc(50% + 0.5px),
+      transparent calc(50% + 0.5px)
+    );
+}
+
+/* ── CORNER RETICLES ── */
+.sm-corner {
+  position: fixed;
+  width: 20px; height: 20px;
+  pointer-events: none; z-index: 10;
+}
+.sm-corner.tl { top: 12px;  left: 12px;  border-top: 1.5px solid rgba(255,160,40,0.5); border-left: 1.5px solid rgba(255,160,40,0.5); }
+.sm-corner.tr { top: 12px;  right: 12px; border-top: 1.5px solid rgba(255,160,40,0.5); border-right: 1.5px solid rgba(255,160,40,0.5); }
+.sm-corner.bl { bottom: calc(12px + env(safe-area-inset-bottom, 0px)); left: 12px;  border-bottom: 1.5px solid rgba(255,160,40,0.3); border-left: 1.5px solid rgba(255,160,40,0.3); }
+.sm-corner.br { bottom: calc(12px + env(safe-area-inset-bottom, 0px)); right: 12px; border-bottom: 1.5px solid rgba(255,160,40,0.3); border-right: 1.5px solid rgba(255,160,40,0.3); }
+.sm-corner.tl::after { content: ''; position: absolute; top: -1.5px; left: 5px;  width: 7px; height: 1.5px; background: rgba(255,160,40,0.5); }
+.sm-corner.tr::after { content: ''; position: absolute; top: -1.5px; right: 5px; width: 7px; height: 1.5px; background: rgba(255,160,40,0.5); }
+
+/* ── SIDE RAILS ── */
+.sm-rail {
+  position: fixed;
+  top: 64px;
+  bottom: calc(56px + env(safe-area-inset-bottom, 0px));
+  width: 1px;
+  pointer-events: none; z-index: 5;
+}
+.sm-rail.left  { left: 5px;  background: linear-gradient(180deg, transparent, rgba(255,160,40,0.20) 15%, rgba(255,160,40,0.20) 85%, transparent); }
+.sm-rail.right { right: 5px; background: linear-gradient(180deg, transparent, rgba(255,160,40,0.12) 15%, rgba(255,160,40,0.12) 85%, transparent); }
+
+/* Tick marks on right rail */
+.sm-ticks {
+  position: fixed;
+  right: 3px; top: 90px;
+  display: flex; flex-direction: column; gap: 22px;
+  pointer-events: none; z-index: 6;
+}
+.sm-tick       { width: 4px; height: 1px; background: rgba(255,160,40,0.20); }
+.sm-tick.major { width: 6px;              background: rgba(255,160,40,0.35); }
+
+/* ── HEADER ── */
+.sm-header {
+  position: sticky; top: 0; z-index: 10;
+  background: rgba(8,9,12,0.96);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  padding: 16px 20px 14px;
+  display: flex; align-items: center; gap: 12px;
+}
+.sm-header::after {
+  content: '';
+  position: absolute; bottom: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    rgba(232,79,170,0.4) 15%,
+    rgba(255,160,40,0.6) 40%,
+    rgba(157,127,245,0.4) 65%,
+    rgba(45,232,160,0.3) 85%,
+    transparent 100%
+  );
+}
+
+.sm-header-left { flex: 1; position: relative; }
+
+.sm-header-title {
+  font-family: 'Orbitron', monospace; font-size: 11px; font-weight: 700;
+  letter-spacing: 3px; color: rgba(255,180,60,0.9); text-transform: uppercase;
+  position: relative; display: inline-block;
+}
+/* Extending fade lines from title — instrument panel label feel */
+.sm-header-title::before,
+.sm-header-title::after {
+  content: ''; position: absolute; top: 50%; height: 1px;
+  background: linear-gradient(90deg, rgba(255,160,40,0.35), transparent);
+}
+.sm-header-title::before { right: calc(100% + 10px); width: 20px; transform: scaleX(-1); }
+.sm-header-title::after  { left:  calc(100% + 10px); width: 36px; }
+
+.sm-header-meta {
+  font-family: 'JetBrains Mono', monospace; font-size: 10px;
+  color: rgba(255,255,255,0.25); margin-top: 3px; letter-spacing: 1px;
+}
+
+.sm-timer {
+  font-family: 'JetBrains Mono', monospace; font-size: 13px;
+  color: rgba(255,180,60,0.5); letter-spacing: 2px; min-width: 48px; text-align: right;
+}
+
+.sm-close-btn {
+  width: 36px; height: 36px;
+  background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.09);
+  border-radius: 4px; color: rgba(255,255,255,0.4); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s; position: relative; flex-shrink: 0;
+}
+.sm-close-btn::before { content: ''; position: absolute; width: 14px; height: 1.5px; background: currentColor; border-radius: 1px; }
+.sm-close-btn::after  { content: ''; position: absolute; width: 1.5px; height: 14px; background: currentColor; border-radius: 1px; }
+.sm-close-btn:hover { background: rgba(255,80,80,0.10); border-color: rgba(255,80,80,0.35); color: #ff5252; }
+
+/* ── BODY ── */
+.sm-body {
+  padding: 20px 20px env(safe-area-inset-bottom, 20px);
+  max-width: 680px; margin: 0 auto;
+  position: relative; z-index: 2;
+}
+
+/* ── SESSION ITEMS ── */
+.sm-item {
+  display: flex;
+  background: rgba(255,255,255,0.028);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 6px; margin-bottom: 8px; overflow: hidden;
+  transition: opacity 0.3s, transform 0.3s; position: relative;
+}
+/* Faint bottom scan line — data row feel */
+.sm-item::before {
+  content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 1px;
+  background: linear-gradient(90deg, transparent 5%, rgba(255,255,255,0.025) 30%, rgba(255,255,255,0.025) 70%, transparent 95%);
+  pointer-events: none;
+}
+
+.sm-item.sm-bloom { animation: smBloom 0.3s ease forwards; }
+@keyframes smBloom {
+  0%   { background: rgba(255,255,255,0.028); }
+  50%  { background: rgba(255,180,60,0.10); }
+  100% { background: rgba(255,255,255,0.028); }
+}
+.sm-item.sm-slideout { opacity: 0; transform: translateX(20px); pointer-events: none; }
+
+.sm-accent-bar { width: 3px; flex-shrink: 0; opacity: 0.85; }
+.sm-item-inner { flex: 1; padding: 11px 14px; min-width: 0; }
+.sm-item-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.sm-item-top.sm-expandable { cursor: pointer; user-select: none; }
+.sm-rank { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: rgba(255,255,255,0.18); letter-spacing: 1px; flex-shrink: 0; }
+.sm-game-tag { font-family: 'Orbitron', monospace; font-size: 9px; font-weight: 700; letter-spacing: 1.5px; padding: 2px 7px; border-radius: 3px; flex-shrink: 0; }
+.sm-label { font-family: 'Syne', sans-serif; font-size: 13px; color: rgba(255,255,255,0.82); flex: 1; min-width: 0; }
+.sm-meta { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: rgba(255,255,255,0.3); flex-shrink: 0; text-align: right; }
+.sm-meta-urgent { color: #ff5252; font-weight: 600; }
+.sm-expand-arrow { font-size: 10px; color: rgba(255,255,255,0.22); flex-shrink: 0; transition: transform 0.2s; }
+.sm-daily-block.expanded .sm-expand-arrow { transform: rotate(180deg); }
+
+/* Urgent item breathing border */
+.sm-item.sm-urgent {
+  border-color: rgba(255,82,82,0.2);
+  animation: smUrgentBorder 2.5s ease-in-out infinite;
+}
+@keyframes smUrgentBorder {
+  0%,100% { border-color: rgba(255,82,82,0.15); }
+  50%      { border-color: rgba(255,82,82,0.40); box-shadow: 0 0 8px rgba(255,82,82,0.08); }
+}
+
+/* ── CHECK BUTTON ── */
+.sm-check-btn {
+  display: flex; align-items: center; gap: 8px; margin-top: 9px;
+  padding: 7px 12px; background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.07); border-radius: 4px;
+  color: rgba(255,255,255,0.38); font-family: 'JetBrains Mono', monospace;
+  font-size: 10px; letter-spacing: 1px; cursor: pointer; transition: all 0.15s; width: 100%;
+}
+.sm-check-btn:hover {
+  background: color-mix(in srgb, var(--item-accent, #e84faa) 8%, transparent);
+  border-color: color-mix(in srgb, var(--item-accent, #e84faa) 28%, transparent);
+  color: var(--item-accent, #e84faa);
+}
+.sm-check-btn.sm-completing { opacity: 0.45; pointer-events: none; }
+.sm-check-icon { font-size: 14px; }
+
+/* ── DAILY SUBTASKS ── */
+.sm-subtasks { display: none; margin-top: 9px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 7px; }
+.sm-daily-block.expanded .sm-subtasks { display: block; }
+.sm-subtask {
+  display: flex; align-items: center; gap: 10px; padding: 8px 4px;
+  border-radius: 3px; cursor: pointer; transition: background 0.12s;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+}
+.sm-subtask:last-child { border-bottom: none; }
+.sm-subtask:hover { background: rgba(255,255,255,0.035); }
+.sm-subtask.sm-completing { opacity: 0.35; pointer-events: none; }
+.sm-sub-check { width: 14px; height: 14px; border-radius: 50%; border: 1.5px solid rgba(255,255,255,0.18); flex-shrink: 0; transition: all 0.15s; }
+.sm-subtask:hover .sm-sub-check { border-color: rgba(255,255,255,0.38); }
+.sm-sub-text { font-family: 'Syne', sans-serif; font-size: 12px; color: rgba(255,255,255,0.68); flex: 1; min-width: 0; }
+.sm-sub-tag { font-family: 'JetBrains Mono', monospace; font-size: 8px; padding: 1px 5px; border-radius: 2px; flex-shrink: 0; opacity: 0.55; }
+
+/* ── ALL CLEAR ── */
+.sm-clear { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 80px 20px; text-align: center; }
+.sm-clear-glyph { font-size: 48px; color: rgba(255,180,60,0.55); margin-bottom: 20px; animation: smGlyphPulse 3s ease-in-out infinite; }
+@keyframes smGlyphPulse {
+  0%,100% { opacity: 0.55; transform: scale(1); }
+  50%      { opacity: 1;    transform: scale(1.06); }
+}
+.sm-clear-title { font-family: 'Orbitron', monospace; font-size: 18px; font-weight: 700; letter-spacing: 4px; color: rgba(255,180,60,0.85); margin-bottom: 10px; }
+.sm-clear-sub { font-family: 'Syne', sans-serif; font-size: 14px; color: rgba(255,255,255,0.28); letter-spacing: 1px; }
+
+/* ── SESSION ITEM TAG OVERRIDES ── */
 .sm-item .tag-res     { background: rgba(74,184,240,.07);  color: #4ab8f0; }
 .sm-item .tag-mat     { background: rgba(45,232,160,.07);  color: #2de8a0; }
 .sm-item .tag-event   { background: rgba(255,179,71,.07);  color: #ffb347; }
@@ -794,11 +1214,33 @@ body::after {
 .btn-secondary { font-family: 'Syne', sans-serif; font-size: 11px; font-weight: 600; letter-spacing: 1px; background: none; color: var(--text-dim); border: 1px solid var(--border2); padding: 8px 16px; border-radius: 3px; cursor: pointer; transition: all .2s; }
 .btn-secondary:hover { color: var(--text); border-color: var(--border3); }
 
+/* ── FLOATING SESSION BUTTON ── */
+#sessionFab {
+  position: fixed;
+  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  right: 20px; z-index: 8000;
+  width: 52px; height: 52px;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  clip-path: polygon(50% 0%, 95% 25%, 95% 75%, 50% 100%, 5% 75%, 5% 25%);
+  background: linear-gradient(145deg, rgba(255,180,60,0.15), rgba(255,140,30,0.08));
+  border: none;
+  transition: transform 0.2s ease, filter 0.2s ease, opacity 0.25s ease;
+  animation: fabPulse 4s ease-in-out infinite;
+}
+@keyframes fabPulse {
+  0%,100% { filter: drop-shadow(0 0 4px rgba(255,180,60,0.3)); }
+  50%      { filter: drop-shadow(0 0 10px rgba(255,180,60,0.6)); }
+}
+#sessionFab:hover { transform: scale(1.08); animation: none; filter: drop-shadow(0 0 14px rgba(255,180,60,0.7)); }
+#sessionFab:active { transform: scale(0.95); }
+#sessionFab.fab-hidden { opacity: 0; pointer-events: none; transform: scale(0.82); }
+
+.fab-glyph { width: 26px; height: 26px; pointer-events: none; }
+
 /* ── FOOTER ── */
 .footer {
   margin-top: 24px; padding-top: 12px;
-  border-top: 1px solid transparent;
-  position: relative;
+  border-top: 1px solid transparent; position: relative;
   display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;
 }
 .footer::before {
@@ -830,7 +1272,6 @@ body::after {
   .fd-budget { text-align: left; }
 }
 
-/* reduced motion — kill all breathing/drift animations */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition-duration: 0.01ms !important; }
 }
