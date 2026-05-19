@@ -1,4 +1,4 @@
-const CACHE_NAME = 'nexus-v510-static';
+const CACHE_NAME = 'nexus-v511-static';
 const ASSETS = [
   '/czn-ops-theory/',
   '/czn-ops-theory/index.html',
