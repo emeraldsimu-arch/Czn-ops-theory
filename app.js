@@ -1,13 +1,9 @@
 // ═══════════════════════════════════════════════════════════
-// NEXUS v5.10 — APP.JS
+// NEXUS v5.11 — APP.JS
 // All application logic, state management, Notion sync
 // GitHub: Emereldsimu-arch/czn-ops-theory
-// Changes from v5.9:
-//   - openSession(): FAB hidden on open, power-on flicker triggered
-//   - closeSession(): FAB restored on close
-//   - buildCurrencySection(): fuel gauge pity bars, terminal aesthetic,
-//     data-game-label attribute on currency cards for watermark
-//   - Version bump to 5.10
+// Changes from v5.10:
+//   - Version bump to 5.11 (card rendering fixes, session layout)
 // ═══════════════════════════════════════════════════════════
 
 // ── STORAGE KEYS ──
