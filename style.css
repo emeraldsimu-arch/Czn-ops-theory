@@ -1,19 +1,17 @@
-
 /* ═══════════════════════════════════════════════════════════
-   NEXUS v5.10 — STYLE
+   NEXUS v5.11 — STYLE
    Neon bounty hunter cockpit aesthetic
    Fonts: Orbitron / Syne / JetBrains Mono
-   Changes from v5.9:
-     - Session mode: cockpit atmosphere — dual ambient glow,
-       corner reticles, side rails + tick marks, geometric
-       targeting reticle watermark, power-on flicker, FAB hide
-     - Session header: extending fade lines from title text
-     - Session items: data-row scan artifact treatment
-     - Game card textures: pushed to visible opacity with
-       game-specific references (CZN tactical grid, WW resonance
-       wave interference, HSR starfield + rail, ZZZ hollow grid)
-     - Card accent bar: inner glow bleeds into card on hover
-     - Currency: terminal/funds aesthetic, fuel gauge pity bars
+   Changes from v5.10:
+     - Replaced border-image with ::after pseudo-element top border
+       (fixes HSR card broken appearance + dark box artifact)
+     - .g-right and .g-pct-num explicitly transparent
+       (fixes percentage number dark box rendering)
+     - HSR texture: repeating radial dot grid via background-size
+       (fixes 1px sub-pixel anti-alias rendering failure)
+     - WW texture: simplified to cleaner dual-frequency wave bands
+     - Session mode sm-body: max-width expanded, two-column grid
+       on desktop 800px+ so content fills the cockpit space
    ═══════════════════════════════════════════════════════════ */
 
 @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Syne:wght@400;500;600;700&family=JetBrains+Mono:wght@300;400;500&display=swap');
@@ -383,33 +381,51 @@ body::after {
 .game-card[data-game="hsr"]::before { animation: breatheHSR 5s ease-in-out infinite; animation-delay: 3.2s; }
 .game-card[data-game="zzz"]::before { animation: breatheZZZ 5s ease-in-out infinite; animation-delay: 4.4s; }
 
-/* gradient top border */
-.game-card { border-top: 1px solid rgba(255,255,255,0.06); }
-.game-card[data-game="czn"] { border-image: linear-gradient(90deg, rgba(232,79,170,0.12) 0%, rgba(232,79,170,0.9) 100%) 1; }
-.game-card[data-game="ww"]  { border-image: linear-gradient(90deg, rgba(45,232,160,0.1)  0%, rgba(45,232,160,0.85)  100%) 1; }
-.game-card[data-game="hsr"] { border-image: linear-gradient(90deg, rgba(157,127,245,0.1) 0%, rgba(157,127,245,0.85) 100%) 1; }
-.game-card[data-game="zzz"] { border-image: linear-gradient(90deg, rgba(74,184,240,0.1)  0%, rgba(74,184,240,0.85)  100%) 1; }
+/* gradient top border — pseudo-element approach avoids border-image
+   conflicts with the left accent bar and stacking context artifacts */
+.game-card::after {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+  z-index: 4; pointer-events: none;
+  /* default fallback — overridden per game below */
+  background: rgba(255,255,255,0.06);
+}
+.game-card[data-game="czn"]::after { background: linear-gradient(90deg, rgba(232,79,170,0.12) 0%, rgba(232,79,170,0.9) 100%); animation: breatheCZN-top 5s ease-in-out infinite; animation-delay: 0s; }
+.game-card[data-game="ww"]::after  { background: linear-gradient(90deg, rgba(45,232,160,0.10) 0%, rgba(45,232,160,0.85) 100%);  animation: breatheWW-top  5s ease-in-out infinite; animation-delay: 1.6s; }
+.game-card[data-game="hsr"]::after { background: linear-gradient(90deg, rgba(157,127,245,0.10) 0%, rgba(157,127,245,0.85) 100%); animation: breatheHSR-top 5s ease-in-out infinite; animation-delay: 3.2s; }
+.game-card[data-game="zzz"]::after { background: linear-gradient(90deg, rgba(74,184,240,0.10) 0%, rgba(74,184,240,0.85) 100%);  animation: breatheZZZ-top 5s ease-in-out infinite; animation-delay: 4.4s; }
 
 .game-card[data-game="czn"] { animation: breatheCZN-border 5s ease-in-out infinite; animation-delay: 0s; }
 .game-card[data-game="ww"]  { animation: breatheWW-border  5s ease-in-out infinite; animation-delay: 1.6s; }
 .game-card[data-game="hsr"] { animation: breatheHSR-border 5s ease-in-out infinite; animation-delay: 3.2s; }
 .game-card[data-game="zzz"] { animation: breatheZZZ-border 5s ease-in-out infinite; animation-delay: 4.4s; }
 
+@keyframes breatheCZN-top {
+  0%,100% { opacity: 0.7; } 50% { opacity: 1; box-shadow: 0 0 8px rgba(232,79,170,0.4); }
+}
+@keyframes breatheWW-top {
+  0%,100% { opacity: 0.65; } 50% { opacity: 1; box-shadow: 0 0 8px rgba(45,232,160,0.35); }
+}
+@keyframes breatheHSR-top {
+  0%,100% { opacity: 0.65; } 50% { opacity: 1; box-shadow: 0 0 8px rgba(157,127,245,0.35); }
+}
+@keyframes breatheZZZ-top {
+  0%,100% { opacity: 0.65; } 50% { opacity: 1; box-shadow: 0 0 8px rgba(74,184,240,0.35); }
+}
 @keyframes breatheCZN-border {
-  0%,100% { box-shadow: inset 0 1px 0 rgba(232,79,170,0.15); }
-  50%      { box-shadow: inset 0 1px 0 rgba(232,79,170,0.45), 0 -2px 14px rgba(232,79,170,0.25); }
+  0%,100% { box-shadow: none; }
+  50%      { box-shadow: 0 -2px 14px rgba(232,79,170,0.18); }
 }
 @keyframes breatheWW-border {
-  0%,100% { box-shadow: inset 0 1px 0 rgba(45,232,160,0.12); }
-  50%      { box-shadow: inset 0 1px 0 rgba(45,232,160,0.4),  0 -2px 14px rgba(45,232,160,0.2); }
+  0%,100% { box-shadow: none; }
+  50%      { box-shadow: 0 -2px 14px rgba(45,232,160,0.15); }
 }
 @keyframes breatheHSR-border {
-  0%,100% { box-shadow: inset 0 1px 0 rgba(157,127,245,0.12); }
-  50%      { box-shadow: inset 0 1px 0 rgba(157,127,245,0.4),  0 -2px 14px rgba(157,127,245,0.2); }
+  0%,100% { box-shadow: none; }
+  50%      { box-shadow: 0 -2px 14px rgba(157,127,245,0.15); }
 }
 @keyframes breatheZZZ-border {
-  0%,100% { box-shadow: inset 0 1px 0 rgba(74,184,240,0.12); }
-  50%      { box-shadow: inset 0 1px 0 rgba(74,184,240,0.4),   0 -2px 14px rgba(74,184,240,0.2); }
+  0%,100% { box-shadow: none; }
+  50%      { box-shadow: 0 -2px 14px rgba(74,184,240,0.15); }
 }
 
 /* per-game background gradient tint */
@@ -442,56 +458,43 @@ body::after {
     );
 }
 
-/* WW — Resonance wave interference: two sine-wave-like
-   horizontal bands slightly out of phase, creating the
-   moiré/interference pattern that references WW's sound
-   and resonance identity. */
+/* WW — Resonance wave: clean horizontal frequency bands at
+   two slightly different spacings create visible interference.
+   Simpler than before — fewer layers, more readable. */
 .game-card[data-game="ww"] .game-top::after {
   content: ''; position: absolute; inset: 0; pointer-events: none;
   background:
     repeating-linear-gradient(
       180deg,
       transparent 0px,
+      transparent 5px,
+      rgba(45,232,160,0.10) 5px,
+      rgba(45,232,160,0.10) 6px,
       transparent 6px,
-      rgba(45,232,160,0.07) 6px,
-      rgba(45,232,160,0.07) 7px,
-      transparent 7px,
-      transparent 11px,
-      rgba(45,232,160,0.04) 11px,
-      rgba(45,232,160,0.04) 12px
-    ),
-    repeating-linear-gradient(
-      176deg,
-      transparent 0px,
-      transparent 8px,
-      rgba(45,232,160,0.04) 8px,
-      rgba(45,232,160,0.04) 9px
+      transparent 13px,
+      rgba(45,232,160,0.06) 13px,
+      rgba(45,232,160,0.06) 14px
     );
 }
 
-/* HSR — Starfield + rail: sparse dots at varying opacity
-   simulate looking out from the Express, with a faint
-   diagonal rail line cutting through — the tracks. */
+/* HSR — Starfield + rail: repeating dot grid via background-size
+   renders reliably cross-browser (no sub-pixel anti-alias issues),
+   with a faint diagonal rail line suggesting the Express tracks. */
 .game-card[data-game="hsr"] .game-top::after {
   content: ''; position: absolute; inset: 0; pointer-events: none;
   background:
     /* Rail line — faint diagonal suggesting the Express tracks */
     linear-gradient(
-      -30deg,
-      transparent 48%,
-      rgba(157,127,245,0.12) 49%,
-      rgba(157,127,245,0.12) 50%,
+      -28deg,
+      transparent 47%,
+      rgba(157,127,245,0.14) 48.5%,
+      rgba(157,127,245,0.14) 49.5%,
       transparent 51%
     ),
-    /* Star field dots — two sizes, staggered */
-    radial-gradient(circle at 15% 25%, rgba(157,127,245,0.25) 1px, transparent 1px),
-    radial-gradient(circle at 72% 15%, rgba(157,127,245,0.18) 1px, transparent 1px),
-    radial-gradient(circle at 88% 60%, rgba(157,127,245,0.22) 1px, transparent 1px),
-    radial-gradient(circle at 40% 80%, rgba(157,127,245,0.15) 1px, transparent 1px),
-    radial-gradient(circle at 60% 40%, rgba(157,127,245,0.20) 1.5px, transparent 1.5px),
-    radial-gradient(circle at 25% 65%, rgba(157,127,245,0.12) 1px, transparent 1px),
-    radial-gradient(circle at 55% 70%, rgba(157,127,245,0.18) 1px, transparent 1px),
-    radial-gradient(circle at 80% 85%, rgba(157,127,245,0.14) 1px, transparent 1px);
+    /* Star dots — repeating radial at fixed grid size, reliable rendering */
+    radial-gradient(circle, rgba(157,127,245,0.35) 1.5px, transparent 1.5px);
+  background-size: auto, 28px 28px;
+  background-position: 0 0, 0 0;
 }
 
 /* ZZZ — Hollow zone grid: the chunky irregular pixel grid
@@ -538,10 +541,11 @@ body::after {
 .g-dl { font-family: 'JetBrains Mono', monospace; font-size: 8px; margin-top: 1px; }
 .g-dl.soon { color: var(--warn); } .g-dl.ok { color: var(--text-dim); }
 .g-reset-note { font-family: 'JetBrains Mono', monospace; font-size: 7px; color: var(--text-dim); margin-top: 1px; opacity: .5; }
-.g-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; margin-left: 8px; }
+.g-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; margin-left: 8px; background: transparent; }
 .g-pct-num {
   font-family: 'Orbitron', monospace; font-size: 22px; font-weight: 700;
   color: var(--accent); line-height: 1; text-align: right;
+  background: transparent;
 }
 .game-card[data-game="czn"] .g-pct-num { animation: breatheCZN 5s ease-in-out infinite; animation-delay: 0s; }
 .game-card[data-game="ww"]  .g-pct-num { animation: breatheWW  5s ease-in-out infinite; animation-delay: 1.6s; }
@@ -1055,9 +1059,23 @@ body::after {
 
 /* ── BODY ── */
 .sm-body {
-  padding: 20px 20px env(safe-area-inset-bottom, 20px);
-  max-width: 680px; margin: 0 auto;
+  padding: 20px 24px env(safe-area-inset-bottom, 20px);
+  max-width: min(1100px, 96vw); margin: 0 auto;
   position: relative; z-index: 2;
+}
+
+/* Two-column item grid on desktop — fills the cockpit space */
+@media (min-width: 800px) {
+  #sessionList {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    align-items: start;
+  }
+  /* All-clear state spans full width */
+  #sessionList .sm-clear {
+    grid-column: 1 / -1;
+  }
 }
 
 /* ── SESSION ITEMS ── */
