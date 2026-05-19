@@ -1,14 +1,14 @@
 // ═══════════════════════════════════════════════════════════
-// NEXUS v5.9 — CONFIG
+// NEXUS v5.11 — CONFIG
 // ── THIS IS THE ONLY FILE THAT NEEDS UPDATING ON PATCH DAY ──
 // Last verified: 2026-05-15
 // Next review: 2026-05-22 (ZZZ Deadly Assault resets)
-// Changes from v5.8:
-//   - Version bump to 5.9 (visual redesign deploy)
+// Changes from v5.10:
+//   - Version bump to 5.11 (card rendering fixes, session layout)
 // ═══════════════════════════════════════════════════════════
 
 const CONFIG = {
-  version: '5.9',
+  version: '5.11',
   lastVerified: '2026-05-15',
 
   notion: {
