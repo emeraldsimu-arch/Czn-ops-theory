@@ -1,17 +1,16 @@
 /* ═══════════════════════════════════════════════════════════
-   NEXUS v5.11 — STYLE
+   NEXUS v5.12 — STYLE
    Neon bounty hunter cockpit aesthetic
    Fonts: Orbitron / Syne / JetBrains Mono
-   Changes from v5.10:
-     - Replaced border-image with ::after pseudo-element top border
-       (fixes HSR card broken appearance + dark box artifact)
-     - .g-right and .g-pct-num explicitly transparent
-       (fixes percentage number dark box rendering)
-     - HSR texture: repeating radial dot grid via background-size
-       (fixes 1px sub-pixel anti-alias rendering failure)
-     - WW texture: simplified to cleaner dual-frequency wave bands
-     - Session mode sm-body: max-width expanded, two-column grid
-       on desktop 800px+ so content fills the cockpit space
+   Changes from v5.11:
+     - BUG 3: .urg-row single-column on mobile (≤480px),
+       .umode text wraps — full names readable at 430px
+     - BUG 4: .cc-pity-fill gets position:relative + z-index:1
+       so fill renders above gauge background, below notch overlay
+     - BUG 5: .sm-close-btn pseudo-element crosshair replaced
+       with inline SVG in index.html (reliable on mobile WebKit)
+     - BUG 6: .fd-task-item switches to Syne 11px on mobile —
+       prose task names are readable context, not data fields
    ═══════════════════════════════════════════════════════════ */
 
 @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Syne:wght@400;500;600;700&family=JetBrains+Mono:wght@300;400;500&display=swap');
@@ -348,7 +347,11 @@ body::after {
 .ugame { font-family: 'Orbitron', monospace; font-size: 7px; letter-spacing: 1.5px; color: var(--danger); text-transform: uppercase; margin-bottom: 1px; }
 .urg-card.warn  .ugame { color: var(--warn); }
 .urg-card.clear .ugame { color: var(--ok); }
+
+/* BUG 3 FIX: .umode default — still truncates on desktop two-column layout
+   but mobile override below switches to wrapping at ≤480px */
 .umode { font-size: 11px; font-weight: 600; color: var(--text-bright); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
 .udays { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--danger); white-space: nowrap; flex-shrink: 0; }
 .urg-card.warn  .udays { color: var(--warn); }
 .urg-card.clear .udays { color: var(--ok); }
@@ -711,11 +714,17 @@ body::after {
   border: 1px solid rgba(255,255,255,0.08);
   border-radius: 2px; overflow: hidden; position: relative;
 }
+
+/* BUG 4 FIX: position:relative + z-index:1 puts the fill above the gauge
+   background but below the ::after notch overlay (z-index:2).
+   Without position:relative, z-index has no effect on static elements. */
 .cc-pity-fill {
   height: 100%; border-radius: 1px;
   transition: width .4s ease, background .4s ease;
   position: relative;
+  z-index: 1;
 }
+
 /* Segment notches overlay — drawn as repeating gradient */
 .cc-pity-gauge::after {
   content: '';
@@ -789,7 +798,11 @@ body::after {
 .fd-meta { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--text-dim); white-space: nowrap; flex-shrink: 0; }
 .fd-meta-urgent { color: var(--danger); }
 .fd-task-list { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 3px; }
+
+/* BUG 6 FIX (desktop base): monospace at 10px is fine on wider viewports —
+   mobile override below switches to Syne for readability at 430px */
 .fd-task-item { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--text-mid); line-height: 1.4; padding-left: 4px; }
+
 .fd-clear { font-family: 'Orbitron', monospace; font-size: 9px; letter-spacing: 1px; color: var(--ok); text-align: center; padding: 16px 0; }
 .fd-wait-list { display: flex; flex-direction: column; gap: 5px; }
 .fd-wait-item { display: flex; align-items: center; gap: 10px; padding: 7px 10px; background: var(--bg3); border: 1px solid var(--border); border-radius: 3px; opacity: .6; }
@@ -1046,6 +1059,10 @@ body::after {
   color: rgba(255,180,60,0.5); letter-spacing: 2px; min-width: 48px; text-align: right;
 }
 
+/* BUG 5 FIX: Removed ::before/::after pseudo-element crosshair approach —
+   unreliable on mobile WebKit without explicit positioning context.
+   Close button now uses an inline SVG crosshair in index.html instead
+   (same reliable approach as the FAB). Button styles kept identical. */
 .sm-close-btn {
   width: 36px; height: 36px;
   background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.09);
@@ -1053,8 +1070,6 @@ body::after {
   display: flex; align-items: center; justify-content: center;
   transition: all 0.15s; position: relative; flex-shrink: 0;
 }
-.sm-close-btn::before { content: ''; position: absolute; width: 14px; height: 1.5px; background: currentColor; border-radius: 1px; }
-.sm-close-btn::after  { content: ''; position: absolute; width: 1.5px; height: 14px; background: currentColor; border-radius: 1px; }
 .sm-close-btn:hover { background: rgba(255,80,80,0.10); border-color: rgba(255,80,80,0.35); color: #ff5252; }
 
 /* ── BODY ── */
@@ -1283,6 +1298,37 @@ body::after {
   .ws-focus { display: none; }
   .fd-date { font-size: 11px; }
   .fd-budget-val { font-size: 18px; }
+}
+
+/* ── MOBILE FIXES — 480px and below ── */
+@media (max-width: 480px) {
+
+  /* BUG 3 FIX: urgency cards stack single column on mobile.
+     Full names visible, no ellipsis truncation. Two-column
+     layout is preserved above 480px on wider viewports. */
+  .urg-row {
+    flex-direction: column;
+  }
+  .urg-card {
+    max-width: none;
+    min-width: 0;
+    flex: none;
+    width: 100%;
+  }
+  .umode {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+  }
+
+  /* BUG 6 FIX: subtask text switches from JetBrains Mono to Syne
+     on mobile. These are prose task names, not data fields —
+     proportional font at 11px reads cleanly at 430px width. */
+  .fd-task-item {
+    font-family: 'Syne', sans-serif;
+    font-size: 11px;
+    line-height: 1.5;
+  }
 }
 
 @media (max-width: 400px) {

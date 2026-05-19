@@ -1,9 +1,12 @@
 // ═══════════════════════════════════════════════════════════
-// NEXUS v5.11 — APP.JS
+// NEXUS v5.12 — APP.JS
 // All application logic, state management, Notion sync
 // GitHub: Emereldsimu-arch/czn-ops-theory
-// Changes from v5.10:
-//   - Version bump to 5.11 (card rendering fixes, session layout)
+// Changes from v5.11:
+//   - BUG 1: buildSessionList() now sorts by urgency tier before return
+//     Urgent cycles (≤2d) always first regardless of game, ordered by days asc
+//   - BUG 2: buildTodayPanel() now derives load label from dynamic totalMins
+//     via shared getSessionLoadLabel() helper — matches buildFeaturedDay()
 // ═══════════════════════════════════════════════════════════
 
 // ── STORAGE KEYS ──
@@ -403,12 +406,53 @@ function checkFreshness() {
   }
 }
 
+// ── SESSION LOAD LABEL HELPER (shared by buildTodayPanel + buildFeaturedDay) ──
+// BUG 2 FIX: Single source of truth for load classification.
+// Calculates totalMins dynamically from actual remaining tasks and cycles,
+// then returns loadClass and budgetLabel using the same thresholds as buildFeaturedDay.
+function getSessionLoadLabel() {
+  const s = wsFull();
+  const CYCLE_MINS = 30;
+  let totalMins = 0;
+
+  GAMES.forEach(g => {
+    // Urgent cycles (≤2d)
+    g.endgameModes.forEach(m => {
+      if (getCy(m.cycleKey) || !isCycleUnlocked(m.cycleKey)) return;
+      const d = daysUntilCycleEnds(m.cycleKey);
+      if (d !== null && d <= 2) totalMins += CYCLE_MINS;
+    });
+
+    // Undone dailies
+    const undoneDailies = g.daily.filter((_, i) => !getv(s, g.id, 'daily', i));
+    if (undoneDailies.length > 0) {
+      totalMins += Math.round(g.dailyLoad * 60 * (undoneDailies.length / g.daily.length));
+    }
+
+    // Non-urgent cycles within 14d
+    g.endgameModes.forEach(m => {
+      if (getCy(m.cycleKey) || !isCycleUnlocked(m.cycleKey)) return;
+      const d = daysUntilCycleEnds(m.cycleKey);
+      const isUrgent = d !== null && d <= 2;
+      if (isUrgent) return;
+      if (d === null || d <= 14) totalMins += CYCLE_MINS;
+    });
+  });
+
+  const loadClass = totalMins > 90 ? 'heavy' : totalMins > 45 ? 'medium' : 'light';
+  const budgetLabel = totalMins === 0
+    ? 'All clear'
+    : totalMins < 60
+      ? `~${totalMins}m`
+      : `~${Math.floor(totalMins / 60)}h ${totalMins % 60 > 0 ? (totalMins % 60) + 'm' : ''}`.trim();
+
+  return { loadClass, budgetLabel, totalMins };
+}
+
 // ── TODAY PANEL ──
 function buildTodayPanel() {
   const s     = wsFull();
   const today = new Date();
-  const dow   = today.getDay();
-  const di    = dow === 0 ? 6 : dow - 1;
   const items = [];
   CONFIG.events.filter(e => e.tier === 'critical').forEach(e => {
     const diff = Math.floor((new Date(e.ends) - today) / (1000*60*60*24));
@@ -427,8 +471,14 @@ function buildTodayPanel() {
       }
     });
   });
-  const plan = WEEK_PLAN[di];
-  if (plan) items.push({ p:3, game: 'NEXUS', text: plan.focus, meta: plan.load + ' session', color: 'var(--text-dim)' });
+
+  // BUG 2 FIX: derive load label from same dynamic calculation as buildFeaturedDay
+  const dow   = today.getDay();
+  const di    = dow === 0 ? 6 : dow - 1;
+  const plan  = WEEK_PLAN[di];
+  const { loadClass, budgetLabel } = getSessionLoadLabel();
+  if (plan) items.push({ p:3, game: 'NEXUS', text: plan.focus, meta: `${budgetLabel} · ${loadClass} session`, color: 'var(--text-dim)' });
+
   const shown = items.slice(0, 3);
   const d = today.toLocaleDateString('en-US', { weekday:'long', month:'short', day:'numeric' });
   let html = `<div class="today-panel"><div class="today-hdr"><div class="today-title">Today's Priority</div><div class="today-date">${d.toUpperCase()}</div></div><div class="today-items">`;
@@ -726,6 +776,11 @@ let sessionTimerInterval = null;
 let sessionCountdownInterval = null;
 let sessionStartTime = null;
 
+// BUG 1 FIX: buildSessionList now sorts entire array by urgency tier before returning.
+// Tier 0 = urgent cycles (≤2d), sorted by days asc.
+// Tier 1 = daily blocks (game priority order, natural from GAMES iteration).
+// Tier 2 = non-urgent cycles (game priority order, natural from GAMES iteration).
+// Game priority order is preserved as a tiebreaker within each tier.
 function buildSessionList() {
   const s = wsFull();
   const items = [];
@@ -745,6 +800,7 @@ function buildSessionList() {
           days: d,
           meta: d <= 0 ? 'Resets TODAY' : d === 1 ? 'Resets TOMORROW' : d + 'd left',
           urgent: true,
+          sortTier: 0,
         });
       }
     });
@@ -765,6 +821,8 @@ function buildSessionList() {
         urgent: false,
         subtasks: undoneDailies,
         expanded: false,
+        sortTier: 1,
+        days: null,
       });
     }
 
@@ -784,9 +842,24 @@ function buildSessionList() {
           days: d,
           meta: d === null ? 'Weekly reset' : d + 'd left',
           urgent: false,
+          sortTier: 2,
         });
       }
     });
+  });
+
+  // Sort: tier first, then within Tier 0 sort by days asc (most urgent first).
+  // Tier 1 and Tier 2 preserve game priority order from GAMES iteration above.
+  items.sort((a, b) => {
+    if (a.sortTier !== b.sortTier) return a.sortTier - b.sortTier;
+    if (a.sortTier === 0) {
+      // Both urgent cycles — sort by days asc, 0-day (today) before 1-day before 2-day
+      const da = a.days === null ? 999 : a.days;
+      const db = b.days === null ? 999 : b.days;
+      return da - db;
+    }
+    // Tier 1 and 2: preserve insertion order (stable sort in modern JS)
+    return 0;
   });
 
   return items;
@@ -1653,14 +1726,8 @@ function buildFeaturedDay() {
   });
 
   const allItems = [...urgent, ...normal];
-  const totalMins = allItems.reduce((sum, i) => sum + (i.mins || 0), 0);
-  const budgetLabel = totalMins === 0
-    ? 'All clear'
-    : totalMins < 60
-      ? `~${totalMins}m`
-      : `~${Math.floor(totalMins / 60)}h ${totalMins % 60 > 0 ? (totalMins % 60) + 'm' : ''}`.trim();
-
-  const loadClass = totalMins > 90 ? 'heavy' : totalMins > 45 ? 'medium' : 'light';
+  // BUG 2 FIX: use shared helper for load label so it matches buildTodayPanel
+  const { loadClass, budgetLabel, totalMins } = getSessionLoadLabel();
   const loadColor = totalMins > 90 ? 'var(--danger)' : totalMins > 45 ? 'var(--warn)' : 'var(--ok)';
   const dateStr = now.toLocaleDateString('en-US', { weekday:'long', month:'short', day:'numeric' }).toUpperCase();
 

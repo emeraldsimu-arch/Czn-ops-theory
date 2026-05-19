@@ -436,7 +436,15 @@ pinInit();
       </div>
     </div>
     <div class="sm-timer" id="sessionTimer">0:00</div>
-    <button class="sm-close-btn" onclick="closeSession()" aria-label="Close session mode"></button>
+    <!-- BUG 5 FIX: inline SVG crosshair replaces unreliable CSS
+         pseudo-element approach on mobile WebKit. Two orthogonal
+         lines centered at 18×18, same reliable method as the FAB. -->
+    <button class="sm-close-btn" onclick="closeSession()" aria-label="Close session mode">
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <line x1="1" y1="1" x2="13" y2="13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="13" y1="1" x2="1" y2="13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+    </button>
   </div>
   <div class="sm-body">
     <div id="sessionList"></div>
@@ -473,7 +481,7 @@ pinInit();
 
 <div class="wrap">
   <header class="site-header">
-    <div class="logo">NEX<span class="logo-accent">U</span>S<span class="logo-ver">v5.11</span></div>
+    <div class="logo">NEX<span class="logo-accent">U</span>S<span class="logo-ver">v5.12</span></div>
     <div class="hdr-right">
       <span class="week-lbl" id="weekLbl"></span>
       <div class="gbar-wrap">
